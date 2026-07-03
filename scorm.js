@@ -48,8 +48,10 @@
    var el=document.getElementById('scorm-progress');
    if(!el||total===0) return;
    var n=Object.keys(viewed).length;
-   el.textContent='📚 Routes explored: '+n+' of '+total+(n>=total?' — complete!':'');
+   if(window.PROGRESS_TEXT){ el.textContent=window.PROGRESS_TEXT(n,total); }
+   else{ el.textContent='📚 Routes explored: '+n+' of '+total+(n>=total?' — complete!':''); }
  }
+ window.__scormBadgeRefresh=updateBadge;
  window.addEventListener('load',function(){
    lmsInit();
    /* wrap the atlas's selectRoute to track exploration */

@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="scorm.js"></script>
+<script src="es.js"></script>
 <style>
   :root{
     --bg:#141a21; --panel:#1c242e; --panel2:#232e3a; --ink:#e8eef4; --ink2:#9fb0c0;
@@ -66,9 +67,13 @@
 <div id="app">
   <div id="sidebar">
     <div class="sb-head">
-      <h1>🌍 Global Human Migration Routes</h1>
-      <p>An interactive satellite &amp; topographic atlas of the world's major irregular migration corridors. Click a route to zoom in and explore its geography, border crossings, blockages &amp; reroutes — and follow the journey of one traveler. <b style="color:var(--ink)">Solid lines</b> = primary routes; <b style="color:var(--ink)">dashed lines</b> = reroutes taken when the main path is blocked. Zoom in anywhere: the satellite view is real imagery, down to individual fences, harbors and trails.</p>
+      <h1 id="app-title">🌍 Global Human Migration Routes</h1>
+      <p id="app-intro">An interactive satellite &amp; topographic atlas of the world's major irregular migration corridors. Click a route to zoom in and explore its geography, border crossings, blockages &amp; reroutes — and follow the journey of one traveler. <b style="color:var(--ink)">Solid lines</b> = primary routes; <b style="color:var(--ink)">dashed lines</b> = reroutes taken when the main path is blocked. Zoom in anywhere: the satellite view is real imagery, down to individual fences, harbors and trails.</p>
       <div id="scorm-progress"></div>
+      <div style="margin-top:10px"><select id="lang-select" style="background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:.78rem;width:100%">
+        <option value="en">English</option>
+        <option value="es">Español</option>
+      </select></div>
     </div>
     <div id="content"></div>
   </div>
@@ -358,48 +363,89 @@ const baseLayers={"Satellite (real imagery)":satellite,"Topographic (Esri – sm
 L.control.layers(baseLayers,null,{position:'topright'}).addTo(map);
 map.on('baselayerchange',e=>{document.getElementById('map').classList.toggle('sat',e.name.startsWith('Satellite'));});
 
+/* ================= I18N ================= */
+const UI_EN={
+ title:"🌍 Global Human Migration Routes",
+ intro:"An interactive satellite &amp; topographic atlas of the world's major irregular migration corridors. Click a route to zoom in and explore its geography, border crossings, blockages &amp; reroutes — and follow the journey of one traveler. <b style=\"color:var(--ink)\">Solid lines</b> = primary routes; <b style=\"color:var(--ink)\">dashed lines</b> = reroutes taken when the main path is blocked. Zoom in anywhere: the satellite view is real imagery, down to individual fences, harbors and trails.",
+ back:"← All routes", secOverview:"Overview", secTerrain:"⛰ The terrain", secCross:"📍 Key crossings & waypoints", secBlock:"🚧 Blockages & rerouting", secJourney:"🧍 One journey",
+ rerouteTag:"↪ reroute (dashed on map)", rerouteTip:"↪ REROUTE: ", reroutePop:"↪ Reroute: ", from:"· from ",
+ storyFoot:"This traveler is a fictional composite; every practice described is documented on this route (IOM, UNHCR, MMC, HRW, press reporting).",
+ listFoot:"<b>About the stories:</b> every traveler profiled here is fictional — a composite built from documented reporting and data by IOM, UNHCR, Mixed Migration Centre, Human Rights Watch and journalists on these routes. The events described (ransom camps, pushbacks, drift voyages, desert expulsions) are all documented practices.<br><br><b>Data:</b> IOM Displacement Tracking Matrix (Global Overview of Migration Routes 2025), UNHCR, Frontex, Mixed Migration Centre, Caminando Fronteras. Figures are estimates and change constantly.<br><br><b>How to use:</b> click any route (in this list or on the map) to zoom in. Click ● markers for crossing details, dashed lines for reroute explanations. The satellite view shows real imagery — zoom all the way in on a crossing (Lampedusa's harbor, the Melilla fence, Zaatari camp) to see the actual terrain. Switch to OpenTopoMap (top-right) for shaded mountain/desert relief.",
+ legend:["Primary route","Reroute / detour when blocked","Branch / variant","Border crossing / waypoint"],
+ progress:"📚 Routes explored: {n} of {t}", progressDone:" — complete!"
+};
+let LANG="en";try{LANG=localStorage.getItem("atlas-lang")||"en";}catch(e){}
+function ui(){return (LANG==="es"&&window.I18N_ES)?I18N_ES.ui:UI_EN;}
+function terrData(){return (LANG==="es"&&window.I18N_ES)?I18N_ES.terrain:TERRAIN;}
+const IDX={};ROUTES.forEach((r,i)=>{IDX[r.id]=i;});
+function getRoute(id){
+ const b=ROUTES[IDX[id]];
+ if(LANG!=="es"||!window.I18N_ES)return b;
+ const o=I18N_ES.routes[IDX[id]]||{};
+ return Object.assign({},b,o,{
+  altPaths:(b.altPaths||[]).map((a,j)=>Object.assign({},a,{name:(o.altPaths&&o.altPaths[j])||a.name})),
+  reroutes:(b.reroutes||[]).map((rr,j)=>Object.assign({},rr,(o.reroutes&&o.reroutes[j])||{})),
+  crossings:b.crossings.map((c,j)=>Object.assign({},c,(o.crossings&&o.crossings[j])||{})),
+  story:Object.assign({},b.story,o.story||{}),
+  path:b.path,color:b.color,id:b.id});
+}
+window.PROGRESS_TEXT=function(n,t){const u=ui();return u.progress.replace("{n}",n).replace("{t}",t)+(n>=t?u.progressDone:"");};
+
 /* legend */
-const legend=L.control({position:'bottomright'});
-legend.onAdd=()=>{const d=L.DomUtil.create('div','legend');
-d.innerHTML='<div class="li"><span class="sw" style="border-color:#e8eef4"></span>Primary route</div>'+
-'<div class="li"><span class="sw dash" style="border-color:#e8eef4"></span>Reroute / detour when blocked</div>'+
-'<div class="li"><span class="sw" style="border-top:3px dotted #e8eef4"></span>Branch / variant</div>'+
-'<div class="li"><span style="width:22px;text-align:center">●</span>Border crossing / waypoint</div>';
-return d;};
-legend.addTo(map);
+let legendCtl=null;
+function buildLegend(){
+ if(legendCtl)map.removeControl(legendCtl);
+ legendCtl=L.control({position:'bottomright'});
+ legendCtl.onAdd=()=>{const d=L.DomUtil.create('div','legend');const lg=ui().legend;
+ d.innerHTML='<div class="li"><span class="sw" style="border-color:#e8eef4"></span>'+lg[0]+'</div>'+
+ '<div class="li"><span class="sw dash" style="border-color:#e8eef4"></span>'+lg[1]+'</div>'+
+ '<div class="li"><span class="sw" style="border-top:3px dotted #e8eef4"></span>'+lg[2]+'</div>'+
+ '<div class="li"><span style="width:22px;text-align:center">●</span>'+lg[3]+'</div>';
+ return d;};
+ legendCtl.addTo(map);
+}
 
 /* terrain labels */
-TERRAIN.forEach(t=>{
- L.tooltip({permanent:true,direction:'center',className:'terr-label'}).setLatLng([t[0],t[1]]).setContent(t[2]).addTo(map);
-});
+let terrLayers=[];
+function buildTerrain(){
+ terrLayers.forEach(t=>map.removeLayer(t));terrLayers=[];
+ terrData().forEach(t=>{
+  terrLayers.push(L.tooltip({permanent:true,direction:'center',className:'terr-label'}).setLatLng([t[0],t[1]]).setContent(t[2]).addTo(map));
+ });
+}
 
 /* draw routes */
-const layerIndex={};
-ROUTES.forEach(r=>{
- const group=L.featureGroup();
- const lines=[];
- const mk=(pts,style)=>{const pl=L.polyline(pts,style).addTo(group);lines.push(pl);return pl;};
- const main=mk(r.path,{color:r.color,weight:4,opacity:.85});
- main.bindTooltip(r.name,{sticky:true});
- (r.altPaths||[]).forEach(a=>{
-   const pl=mk(a.pts,{color:r.color,weight:3,opacity:.7,dashArray:'2 7'});
-   pl.bindTooltip(r.name+' — '+a.name,{sticky:true});
+let layerIndex={};
+function buildRoutes(){
+ Object.keys(layerIndex).forEach(id=>map.removeLayer(layerIndex[id].group));
+ layerIndex={};
+ ROUTES.forEach(base=>{
+  const r=getRoute(base.id);
+  const group=L.featureGroup();
+  const lines=[];
+  const mk=(pts,style)=>{const pl=L.polyline(pts,style).addTo(group);lines.push(pl);return pl;};
+  const main=mk(r.path,{color:r.color,weight:4,opacity:.85});
+  main.bindTooltip(r.name,{sticky:true});
+  (r.altPaths||[]).forEach(a=>{
+    const pl=mk(a.pts,{color:r.color,weight:3,opacity:.7,dashArray:'2 7'});
+    pl.bindTooltip(r.name+' — '+a.name,{sticky:true});
+  });
+  (r.reroutes||[]).forEach(rr=>{
+    const pl=mk(rr.pts,{color:r.color,weight:3,opacity:.8,dashArray:'9 7'});
+    pl.bindTooltip(ui().rerouteTip+rr.name,{sticky:true});
+    pl.bindPopup('<b>'+ui().reroutePop+rr.name+'</b><br>'+rr.reason);
+  });
+  const markers=[];
+  r.crossings.forEach(c=>{
+    const m=L.marker(c.ll,{icon:L.divIcon({className:'',html:'<div class="xmark" style="background:'+r.color+'"></div>',iconSize:[13,13],iconAnchor:[7,7]})}).addTo(group);
+    m.bindPopup('<b>'+c.name+'</b><br>'+c.note);
+    markers.push(m);
+  });
+  group.addTo(map);
+  lines.forEach(l=>l.on('click',()=>window.selectRoute(base.id)));
+  layerIndex[base.id]={group,lines,markers};
  });
- (r.reroutes||[]).forEach(rr=>{
-   const pl=mk(rr.pts,{color:r.color,weight:3,opacity:.8,dashArray:'9 7'});
-   pl.bindTooltip('↪ REROUTE: '+rr.name,{sticky:true});
-   pl.bindPopup('<b>↪ Reroute: '+rr.name+'</b><br>'+rr.reason);
- });
- const markers=[];
- r.crossings.forEach(c=>{
-   const m=L.marker(c.ll,{icon:L.divIcon({className:'',html:'<div class="xmark" style="background:'+r.color+'"></div>',iconSize:[13,13],iconAnchor:[7,7]})}).addTo(group);
-   m.bindPopup('<b>'+c.name+'</b><br>'+c.note);
-   markers.push(m);
- });
- group.addTo(map);
- lines.forEach(l=>l.on('click',()=>selectRoute(r.id)));
- layerIndex[r.id]={group,lines,markers};
-});
+}
 
 /* selection & animation */
 let selected=null, animTimer=null;
@@ -419,54 +465,78 @@ function animateFlow(id){
 }
 function clearAnim(id){
  if(animTimer){cancelAnimationFrame(animTimer);animTimer=null;}
- if(id){const main=layerIndex[id].lines[0];main.setStyle({dashArray:null});if(main._path)main._path.style.strokeDashoffset=0;}
+ if(id&&layerIndex[id]){const main=layerIndex[id].lines[0];main.setStyle({dashArray:null});if(main._path)main._path.style.strokeDashoffset=0;}
 }
 
 /* ================= SIDEBAR ================= */
 const content=document.getElementById('content');
 function renderList(){
  clearAnim(selected);selected=null;setDim(false);
+ const u=ui();
  let h='';
- ROUTES.forEach(r=>{
-  h+='<div class="route-card" onclick="selectRoute(\''+r.id+'\')"><span class="dot" style="background:'+r.color+'"></span><div><h3>'+r.name+'</h3><div class="meta">'+r.distance+' · '+r.duration+'</div></div></div>';
+ ROUTES.forEach(base=>{
+  const r=getRoute(base.id);
+  h+='<div class="route-card" onclick="selectRoute(\''+base.id+'\')"><span class="dot" style="background:'+r.color+'"></span><div><h3>'+r.name+'</h3><div class="meta">'+r.distance+' · '+r.duration+'</div></div></div>';
  });
- h+='<div class="foot"><b>About the stories:</b> every traveler profiled here is fictional — a composite built from documented reporting and data by IOM, UNHCR, Mixed Migration Centre, Human Rights Watch and journalists on these routes. The events described (ransom camps, pushbacks, drift voyages, desert expulsions) are all documented practices.<br><br><b>Data:</b> IOM Displacement Tracking Matrix (Global Overview of Migration Routes 2025), UNHCR, Frontex, Mixed Migration Centre, Caminando Fronteras. Figures are estimates and change constantly.<br><br><b>How to use:</b> click any route (in this list or on the map) to zoom in. Click ● markers for crossing details, dashed lines for reroute explanations. The satellite view shows real imagery — zoom all the way in on a crossing (Lampedusa’s harbor, the Melilla fence, Zaatari camp) to see the actual terrain. Switch to OpenTopoMap (top-right) for shaded mountain/desert relief.</div>';
+ h+='<div class="foot">'+u.listFoot+'</div>';
  content.innerHTML=h;
  map.flyTo([18,15],3,{duration:1.2});
 }
-function selectRoute(id){
- const r=ROUTES.find(x=>x.id===id);
+function selectRouteInner(id){
+ const r=getRoute(id);
+ const u=ui();
  clearAnim(selected);selected=id;setDim(true);animateFlow(id);
  map.flyToBounds(layerIndex[id].group.getBounds().pad(.25),{duration:1.4});
- let h='<button class="back" onclick="renderList()">← All routes</button>';
+ let h='<button class="back" onclick="renderList()">'+u.back+'</button>';
  h+='<h2 style="color:'+r.color+'">'+r.name+'</h2>';
  h+='<div class="chips"><span class="chip">📏 <b>'+r.distance+'</b></span><span class="chip">⏱ <b>'+r.duration+'</b></span>';
  r.stats.forEach(s=>{h+='<span class="chip">'+s[0]+': <b>'+s[1]+'</b></span>';});
  h+='</div>';
- h+='<div class="sec"><h4>Overview</h4><p>'+r.overview+'</p></div>';
- h+='<div class="sec"><h4>⛰ The terrain</h4><p>'+r.terrain+'</p></div>';
- h+='<div class="sec"><h4>📍 Key crossings & waypoints</h4>';
+ h+='<div class="sec"><h4>'+u.secOverview+'</h4><p>'+r.overview+'</p></div>';
+ h+='<div class="sec"><h4>'+u.secTerrain+'</h4><p>'+r.terrain+'</p></div>';
+ h+='<div class="sec"><h4>'+u.secCross+'</h4>';
  r.crossings.forEach((c,i)=>{h+='<div class="xing" onclick="goXing(\''+id+'\','+i+')"><span class="pin">●</span><span>'+c.name+'<small>'+c.note+'</small></span></div>';});
  h+='</div>';
- h+='<div class="sec"><h4>🚧 Blockages & rerouting</h4><p>'+r.blockage+'</p>';
- (r.reroutes||[]).forEach(rr=>{h+='<p style="margin-top:8px"><span class="reroute-tag">↪ reroute (dashed on map)</span><br><b style="font-size:.8rem">'+rr.name+'</b><br>'+rr.reason+'</p>';});
+ h+='<div class="sec"><h4>'+u.secBlock+'</h4><p>'+r.blockage+'</p>';
+ (r.reroutes||[]).forEach(rr=>{h+='<p style="margin-top:8px"><span class="reroute-tag">'+u.rerouteTag+'</span><br><b style="font-size:.8rem">'+rr.name+'</b><br>'+rr.reason+'</p>';});
  h+='</div>';
- h+='<div class="sec"><h4>🧍 One journey</h4></div>';
- h+='<div class="story"><div class="who">'+r.story.who+' <span>· from '+r.story.origin+'</span></div>';
+ h+='<div class="sec"><h4>'+u.secJourney+'</h4></div>';
+ h+='<div class="story"><div class="who">'+r.story.who+' <span>'+u.from+r.story.origin+'</span></div>';
  r.story.text.forEach(p=>{h+='<p>'+p+'</p>';});
  h+='</div>';
- h+='<div class="foot">This traveler is a fictional composite; every practice described is documented on this route (IOM, UNHCR, MMC, HRW, press reporting).</div>';
+ h+='<div class="foot">'+u.storyFoot+'</div>';
  content.innerHTML=h;
  document.getElementById('sidebar').scrollTop=0;
 }
 function goXing(id,i){
- const r=ROUTES.find(x=>x.id===id);
+ const r=getRoute(id);
  const c=r.crossings[i];
- map.flyTo(c.ll,c.name.indexOf('fence')>-1||c.name.indexOf('camp')>-1?14:9,{duration:1.2});
+ map.flyTo(c.ll,ROUTES[IDX[id]].crossings[i].name.indexOf('fence')>-1||ROUTES[IDX[id]].crossings[i].name.indexOf('camp')>-1?14:9,{duration:1.2});
  layerIndex[id].markers[i].openPopup();
 }
-window.selectRoute=selectRoute;window.renderList=renderList;window.goXing=goXing;
-renderList();
+
+/* ================= LANGUAGE ================= */
+function applyHeader(){
+ const u=ui();
+ document.getElementById('app-title').textContent=u.title;
+ document.getElementById('app-intro').innerHTML=u.intro;
+ document.title=(LANG==='es')?'Rutas migratorias humanas del mundo — Atlas topográfico interactivo':'Global Human Migration Routes — Interactive Topographic Atlas';
+ document.documentElement.lang=LANG;
+}
+function setLang(v){
+ LANG=v;try{localStorage.setItem('atlas-lang',v);}catch(e){}
+ applyHeader();buildLegend();buildTerrain();buildRoutes();
+ if(selected){const s=selected;selected=null;selectRouteInner(s);}
+ else renderList();
+ if(window.__scormBadgeRefresh)window.__scormBadgeRefresh();
+}
+
+window.selectRoute=selectRouteInner;window.renderList=renderList;window.goXing=goXing;
+const langSel=document.getElementById('lang-select');
+langSel.value=LANG;
+langSel.addEventListener('change',e=>setLang(e.target.value));
+applyHeader();buildLegend();buildTerrain();buildRoutes();renderList();
+
 </script>
 </body>
 </html>
