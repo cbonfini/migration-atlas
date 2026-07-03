@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Global Human Migration Routes — Interactive Topographic Atlas</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="scorm.js"></script>
+<style>
+  :root{
+    --bg:#141a21; --panel:#1c242e; --panel2:#232e3a; --ink:#e8eef4; --ink2:#9fb0c0;
+    --accent:#f4a261; --line:#31404f;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%; font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--ink);}
+  #app{display:flex; height:100%;}
+  #sidebar{width:400px; min-width:340px; background:var(--panel); overflow-y:auto; border-right:1px solid var(--line); flex-shrink:0;}
+  #map{flex:1; background:#0e1319;}
+  .sb-head{padding:18px 20px 14px; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--panel); z-index:5;}
+  .sb-head h1{font-size:1.05rem; letter-spacing:.4px;}
+  .sb-head p{font-size:.78rem; color:var(--ink2); margin-top:6px; line-height:1.45;}
+  .route-card{display:flex; gap:12px; align-items:flex-start; padding:13px 20px; cursor:pointer; border-bottom:1px solid var(--line); transition:background .15s;}
+  .route-card:hover{background:var(--panel2);}
+  .dot{width:14px; height:14px; border-radius:50%; margin-top:3px; flex-shrink:0; box-shadow:0 0 6px rgba(0,0,0,.5);}
+  .route-card h3{font-size:.88rem; font-weight:600;}
+  .route-card .meta{font-size:.73rem; color:var(--ink2); margin-top:3px; line-height:1.4;}
+  .detail{padding:0 0 30px;}
+  .back{display:inline-block; margin:14px 20px 0; font-size:.78rem; color:var(--accent); cursor:pointer; background:none; border:1px solid var(--accent); border-radius:14px; padding:4px 12px;}
+  .back:hover{background:var(--accent); color:#141a21;}
+  .detail h2{font-size:1.08rem; padding:12px 20px 2px; line-height:1.3;}
+  .chips{display:flex; flex-wrap:wrap; gap:6px; padding:10px 20px;}
+  .chip{background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:4px 10px; font-size:.7rem; color:var(--ink2);}
+  .chip b{color:var(--ink); font-weight:600;}
+  .sec{padding:10px 20px 0;}
+  .sec h4{font-size:.72rem; text-transform:uppercase; letter-spacing:1.2px; color:var(--accent); margin-bottom:6px;}
+  .sec p{font-size:.82rem; line-height:1.55; color:#cdd8e2;}
+  .xing{display:flex; gap:8px; padding:6px 8px; margin:3px 0; font-size:.79rem; border-radius:6px; cursor:pointer; background:var(--panel2); line-height:1.4;}
+  .xing:hover{background:#2c3b49;}
+  .xing .pin{color:var(--accent); flex-shrink:0;}
+  .xing small{color:var(--ink2); display:block;}
+  .story{margin:8px 20px 0; padding:14px 16px; background:var(--panel2); border-left:3px solid var(--accent); border-radius:0 8px 8px 0;}
+  .story .who{font-size:.8rem; font-weight:600; margin-bottom:6px;}
+  .story .who span{color:var(--ink2); font-weight:400;}
+  .story p{font-size:.8rem; line-height:1.6; color:#d5dee7; margin-bottom:8px;}
+  .story p:last-child{margin-bottom:0;}
+  .reroute-tag{display:inline-block; background:#5c2e2e; color:#f0b8b8; font-size:.68rem; padding:2px 8px; border-radius:10px; margin-bottom:6px;}
+  .foot{padding:16px 20px; font-size:.68rem; color:var(--ink2); line-height:1.5; border-top:1px solid var(--line); margin-top:18px;}
+  .foot a{color:var(--accent); text-decoration:none;}
+  .legend{background:rgba(20,26,33,.88); color:var(--ink); padding:10px 12px; border-radius:8px; font-size:.72rem; line-height:1.7; border:1px solid var(--line);}
+  .legend .li{display:flex; align-items:center; gap:8px;}
+  .legend .sw{width:22px; height:0; border-top:3px solid #fff;}
+  .legend .sw.dash{border-top-style:dashed;}
+  .terr-label{background:none; border:none; box-shadow:none; color:#3d3325; font-style:italic; font-size:11px; text-shadow:0 0 4px rgba(255,255,255,.9),0 0 8px rgba(255,255,255,.7); font-weight:600; letter-spacing:1px; white-space:nowrap;}
+  .sat .terr-label{color:#f5e9d0; text-shadow:0 0 4px rgba(0,0,0,.9);}
+  .xmark{width:13px;height:13px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 0 5px rgba(0,0,0,.6);}
+  .leaflet-popup-content-wrapper{background:var(--panel); color:var(--ink); border-radius:8px; font-size:.8rem;}
+  .leaflet-popup-content{margin:10px 14px; line-height:1.45;}
+  .leaflet-popup-tip{background:var(--panel);}
+  .leaflet-popup-content b{color:var(--accent);}
+  #scorm-progress{margin-top:8px; font-size:.72rem; color:var(--accent);}
+  @media (max-width:760px){ #app{flex-direction:column;} #sidebar{width:100%; height:45%; min-width:0;} #map{height:55%;} }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="sidebar">
+    <div class="sb-head">
+      <h1>🌍 Global Human Migration Routes</h1>
+      <p>An interactive satellite &amp; topographic atlas of the world's major irregular migration corridors. Click a route to zoom in and explore its geography, border crossings, blockages &amp; reroutes — and follow the journey of one traveler. <b style="color:var(--ink)">Solid lines</b> = primary routes; <b style="color:var(--ink)">dashed lines</b> = reroutes taken when the main path is blocked. Zoom in anywhere: the satellite view is real imagery, down to individual fences, harbors and trails.</p>
+      <div id="scorm-progress"></div>
+    </div>
+    <div id="content"></div>
+  </div>
+  <div id="map"></div>
+</div>
+
+<script>
+/* ================= DATA ================= */
+const ROUTES = [
+{
+id:"atlantic", name:"West Africa → Canary Islands (Atlantic Route)", color:"#e63946",
+distance:"100–1,700 km open ocean (depending on departure point)", duration:"2–10+ days at sea",
+stats:[["Arrivals 2025","≈22,000 (–50% vs 2024)"],["Dead/missing 2025","207 confirmed; NGO estimates 1,400–1,900"],["Main origins","Mali, Senegal, Guinea"]],
+overview:"The deadliest maritime route to Europe. Wooden cayucos (dugout fishing canoes) and pateras leave beaches in Senegal, The Gambia, Mauritania and Western Sahara for Spain's Canary Islands. From Western Sahara the crossing is ~100 km; from Senegal it exceeds 1,500 km against Atlantic currents. Boats that miss the islands drift into the open ocean — some have been found months later off Brazil and the Caribbean.",
+terrain:"Open Atlantic: 2–4 m swells, the cold Canary Current pushing boats southwest away from land, no shelter, no fresh water. Before boarding, many cross the western Sahara desert to reach Nouadhibou or Dakhla.",
+blockage:"Crackdowns by Mauritania and Morocco (EU-funded patrols, raids, desert expulsions) pushed departures SOUTH to Senegal and The Gambia — making the sea leg 10× longer and far deadlier. Roughly 1 in 5 who attempt from Senegal does not survive, per Spanish rescue NGOs.",
+path:[[14.42,-16.97],[15.6,-18.4],[18.0,-19.6],[21.0,-20.3],[24.0,-19.0],[26.4,-16.9],[27.76,-17.99]],
+altPaths:[
+ {name:"Mauritania departure (Nouadhibou)", pts:[[20.93,-17.05],[23.2,-17.6],[25.8,-16.8],[27.9,-15.6]]},
+ {name:"W. Sahara short crossing", pts:[[27.12,-13.4],[27.9,-13.9],[28.35,-14.05]]}
+],
+reroutes:[{name:"Southward shift of departures (after Mauritanian/Moroccan crackdowns)", reason:"EU-funded interception at Nouadhibou & Dakhla forced smugglers to launch from Senegal/Gambia — a 1,500+ km ocean leg.", pts:[[13.45,-16.75],[13.0,-18.5],[15.5,-21.0],[20.0,-22.0],[24.5,-20.0],[27.4,-18.3],[27.76,-17.99]]}],
+crossings:[
+ {ll:[14.42,-16.97], name:"Mbour / Kayar beaches, Senegal", note:"Cayuco departure points; 100–200 people per boat."},
+ {ll:[20.93,-17.05], name:"Nouadhibou, Mauritania", note:"Historic departure hub; heavy interception & deportation raids since 2024–25."},
+ {ll:[23.7,-15.94], name:"Dakhla, Western Sahara", note:"Patera departures toward Fuerteventura."},
+ {ll:[27.76,-17.99], name:"El Hierro, Canary Is. (arrival)", note:"Westernmost island; main 2024–25 arrival point as boats route wide to avoid patrols."}
+],
+story:{who:"Fatoumata, 22 — fictional composite", origin:"central Mali",
+text:["Fatoumata left her village near Mopti after armed men burned the market and her father's shop with it. In Dakar a broker took €450 and pointed her to a beach at Mbour, where 138 people waded out at 2 a.m. to a wooden cayuco built for fish, not passengers.","On day four the engine swallowed contaminated fuel and died. The current carried them west, away from land. Water was rationed to a bottle-cap, twice a day. She watched two men drink seawater and stop making sense. Seven people died on the crossing; the living said a prayer and lowered them over the side.","On day nine a Spanish rescue plane spotted them 80 km south of El Hierro. Salvamento Marítimo took nine hours to arrive. Fatoumata now waits in a camp in Tenerife — one of the roughly four in five who survive this route."]}
+},
+{
+id:"sahara", name:"Sahel → Sahara → Libya / Algeria", color:"#f77f00",
+distance:"≈2,500–3,000 km overland (Niamey → Tripoli)", duration:"2 weeks – several months (often years, with detention)",
+stats:[["Movements","Hundreds of thousands transit Agadez yearly"],["Saharan deaths","Believed to exceed Mediterranean drownings (IOM)"],["Key hub","Agadez, Niger"]],
+overview:"The great overland feeder route for the Central Mediterranean. West Africans converge on Agadez, Niger — 'gateway to the Sahara' — then cross the Ténéré desert via Dirkou and Séguédine to the Tummo border and on to Sabha and Tripoli in Libya. A western branch runs to Assamaka and Tamanrasset in Algeria. Pickup trucks carry 25–30 people each; passengers grip wooden sticks to avoid falling off — those who fall are often left behind.",
+terrain:"The Ténéré: a 1,300 km sand sea with dunes, no water, ground temperatures above 50 °C. Vehicle breakdown or a missed GPS waypoint is a death sentence. The route is dotted with wrecks and shallow graves.",
+blockage:"Niger's Law 2015-36 (2015, EU-backed) criminalized transporting migrants — it didn't stop movement, it pushed convoys off the marked wells onto remote tracks, and Saharan deaths rose ~six-fold. The junta REPEALED the law in Nov 2023; army-escorted convoys now leave Agadez openly every week. Algeria, meanwhile, mass-expels migrants and abandons them at 'Point Zero' near Assamaka, 15 km from the nearest town.",
+path:[[13.51,2.11],[14.9,5.3],[16.97,7.99],[18.96,12.91],[20.2,12.98],[21.95,13.65],[22.75,14.15],[24.9,14.4],[27.04,14.43],[29.3,14.2],[31.77,13.98],[32.88,13.19]],
+altPaths:[{name:"Kufra corridor (from Sudan/Chad)", pts:[[15.45,32.55],[18.5,27.5],[21.5,24.5],[24.18,23.31],[28.5,21.0],[32.08,23.96]]}],
+reroutes:[
+ {name:"Remote Ténéré tracks (2016–2023, under Law 2015-36)", reason:"Criminalization pushed smugglers off the main Dirkou axis onto unmarked desert tracks far from wells and rescue — deaths rose six-fold.", pts:[[16.97,7.99],[17.8,10.5],[18.9,11.8],[20.6,12.2],[21.9,13.0],[22.75,14.15]]},
+ {name:"Algeria branch → mass expulsions back", reason:"Algeria deports tens of thousands and abandons them at 'Point Zero' in the desert; many walk 15 km to Assamaka.", pts:[[16.97,7.99],[18.74,7.39],[19.37,5.77],[19.57,5.77],[22.79,5.53],[26.5,4.5],[35.7,-0.63]]}
+],
+crossings:[
+ {ll:[16.97,7.99], name:"Agadez, Niger", note:"Sahara's migration capital. Weekly army-escorted convoys since the 2023 repeal of Law 2015-36."},
+ {ll:[18.96,12.91], name:"Dirkou checkpoint", note:"Oasis staging post on the Ténéré crossing."},
+ {ll:[22.75,14.15], name:"Tummo border post (Niger→Libya)", note:"Remote desert frontier; control shifts between armed groups."},
+ {ll:[27.04,14.43], name:"Sabha, Libya", note:"Notorious hub: migrants routinely sold, detained and ransomed here."},
+ {ll:[19.37,5.77], name:"Assamaka / 'Point Zero' (Niger–Algeria)", note:"Where Algeria abandons expelled migrants in the open desert."}
+],
+story:{who:"Emmanuel, 24 — fictional composite", origin:"Benin City, Nigeria",
+text:["A recruiter in Benin City promised Emmanuel warehouse work in Libya, wages in dollars. The bus to Niamey was legal and easy. In Agadez he waited three weeks in a walled compound called a 'ghetto' until the Monday convoy left — 26 men in the back of a Hilux, each gripping a wooden stick wedged into the cargo rails. 'If you sleep, you fall. If you fall, no one stops.'","Past Dirkou he counted the things half-buried in sand: tires, a truck cab, a sun-bleached shoe. At Sabha the driver didn't take them to a warehouse — he sold them. Militiamen filmed Emmanuel being beaten and sent the video to his mother; she paid twice, ₦900,000, through an agent in a phone shop.","Fourteen months after leaving home he reached Tripoli, still owing money, now deciding whether the sea can be worse than the desert. He knows it can."]}
+},
+{
+id:"cmed", name:"Central Mediterranean (Libya/Tunisia → Italy/Greece)", color:"#d62828",
+distance:"190–350 km of open sea", duration:"12–60 hours",
+stats:[["Arrivals to Italy 2025","Libya re-emerged as top departure point (+69%)"],["Med deaths 2025","1,700+ (IOM)"],["New corridor","Tobruk → Crete +260% in 2025"]],
+overview:"The most lethal stretch of the world's deadliest sea. Rubber and steel boats leave Zuwara and Garabulli (Libya) and Sfax (Tunisia) for Lampedusa and Sicily. In 2025 a new corridor exploded: larger boats from Tobruk in eastern Libya running 350 km to Crete, up 260%. Departures from Libya rose 69% as Tunisia cracked down.",
+terrain:"Open Mediterranean. Rubber boats ride 40+ people on 10 m of inflatable tube; a change in wind swamps them. The Sicilian Channel's shipping lanes offer rescue chances — the Crete run crosses emptier water.",
+blockage:"EU-funded Libyan coast guard interceptions return people to Libyan detention (documented torture, ransom). Tunisia's 2023–25 crackdown and desert expulsions pushed departures back to Libya, and eastward to the new Cyrenaica→Crete corridor — longer, but less patrolled.",
+path:[[32.93,12.08],[33.9,12.3],[35.5,12.6],[36.8,12.2],[37.5,12.9]],
+altPaths:[
+ {name:"Tunisia → Lampedusa", pts:[[34.74,10.76],[35.1,11.6],[35.5,12.6]]},
+ {name:"E. Libya → Crete (new 2025 corridor)", pts:[[32.08,23.96],[33.6,24.4],[34.84,24.08],[35.24,24.8]]}
+],
+reroutes:[{name:"Shift east: Tobruk → Crete", reason:"Interceptions off Tripoli/Tunisia pushed smugglers to eastern Libya; detections on the Crete corridor rose 260% in 2025.", pts:[[32.08,23.96],[33.6,24.4],[34.84,24.08],[35.24,24.8]]}],
+crossings:[
+ {ll:[32.93,12.08], name:"Zuwara, Libya", note:"Historic smuggling port west of Tripoli."},
+ {ll:[34.74,10.76], name:"Sfax, Tunisia", note:"Departure hub; scene of 2023–25 crackdowns and desert expulsions."},
+ {ll:[35.5,12.6], name:"Lampedusa, Italy (arrival)", note:"Tiny island closer to Africa than to Sicily; reception hotspot."},
+ {ll:[32.08,23.96], name:"Tobruk, E. Libya", note:"Departure point of the new long-range corridor to Crete."},
+ {ll:[35.24,24.8], name:"Crete / Gavdos, Greece (arrival)", note:"Detections up 260% in 2025."}
+],
+story:{who:"Yusuf, 31 — fictional composite", origin:"El Fasher, Darfur, Sudan",
+text:["Yusuf survived the siege of El Fasher by leaving everything: the pharmacy where he worked, his mother's grave, the city itself. He crossed into Libya through the Kufra desert with other Darfuris, and spent five months in an Ajdabiya warehouse working off a 'transport debt' he never agreed to.","At Tobruk the smugglers loaded 90 people onto a steel fishing boat for the new long run to Crete — 350 km, no life jackets, the Libyan coast guard paid to look away, or so the broker claimed. Thirty hours in, the weather turned; waves broke over the bow and people tied children to the mast rails.","A Greek coast guard cutter reached them off Gavdos. Yusuf's asylum interview is in eleven months. He shows anyone who asks the photo of his pharmacy, tiles the color of mint. 'I did not migrate,' he says. 'I was evacuated by nobody, so I evacuated myself.'"]}
+},
+{
+id:"wmed", name:"Western Mediterranean (Morocco/Algeria → Spain)", color:"#b5179e",
+distance:"14 km (Strait of Gibraltar) – 200 km (Alboran Sea)", duration:"4–30 hours",
+stats:[["2025 trend","Flows +35% (mostly from Algeria); deaths –73%"],["Fences","Ceuta & Melilla: 6–10 m triple fences"],["Melilla, June 2022","≥23 died in mass fence crossing"]],
+overview:"Three ways into Spain: the 14 km Strait of Gibraltar; the Alboran Sea from Algeria to Almería; and the land fences of Ceuta and Melilla — Europe's only land borders with Africa, ringed by 6–10 m barriers, razor wire and watchtowers.",
+terrain:"The Strait is short but treacherous: shipping traffic, fog and the collision of Atlantic and Mediterranean currents. Sub-Saharan travelers first cross the Atlas mountains and live rough in forest camps (Gourougou) waiting to attempt the fences.",
+blockage:"Fence fortification after the June 2022 Melilla disaster (≥23 dead in a mass crossing) pushed movement to sea. Moroccan cooperation with Spain shifted departures east to Algeria: the Algeria→Almería/Murcia corridor is now the main channel, with flows up 35% in 2025.",
+path:[[35.17,-2.93],[35.6,-2.6],[36.2,-2.5],[36.84,-2.46]],
+altPaths:[
+ {name:"Strait of Gibraltar", pts:[[35.78,-5.81],[35.95,-5.7],[36.01,-5.61]]},
+ {name:"Algeria → Almería (main 2025 corridor)", pts:[[35.7,-0.63],[36.3,-1.4],[36.84,-2.46]]}
+],
+reroutes:[{name:"From the fences to the Alboran Sea", reason:"After the 2022 Melilla tragedy and fence hardening, attempts shifted to sea crossings from Algeria.", pts:[[35.7,-0.63],[36.1,-1.0],[36.6,-1.8],[37.6,-0.98]]}],
+crossings:[
+ {ll:[35.29,-2.94], name:"Melilla fence (ES enclave)", note:"6–10 m triple fence; site of the June 2022 disaster. Zoom in — the fence line is visible from satellite."},
+ {ll:[35.89,-5.32], name:"Ceuta fence (ES enclave)", note:"Twin enclave barrier on the Strait."},
+ {ll:[35.78,-5.81], name:"Tangier, Morocco", note:"Departures across the 14 km Strait."},
+ {ll:[35.7,-0.63], name:"Oran, Algeria", note:"Main 2025 departure zone toward Almería/Murcia."},
+ {ll:[36.84,-2.46], name:"Almería, Spain (arrival)", note:"Alboran Sea arrivals."}
+],
+story:{who:"Ibrahim, 23 — fictional composite", origin:"Conakry, Guinea",
+text:["Ibrahim spent eight months on Mount Gourougou, in the forest camps above Melilla, eating what the group could pool and watching the triple fence through binoculars someone had traded for a phone. He attempted it twice. The first time the razor wire took the skin off both palms; the second time Moroccan auxiliary forces cleared the camp at dawn and bused everyone 300 km south.","After the mass crossing in 2022 — he lost a friend from Sudan in the crush at the gate — he stopped believing in the fence. He worked construction in Oran for a year to buy a place on a fiberglass boat: 190 km across the Alboran Sea, twelve people, one compass.","The sea was flat, which he calls the only luck of his life. A fishing boat off Almería called the rescue service. 'The fence is a wall,' he says. 'The sea is a door that sometimes opens.'"]}
+},
+{
+id:"emed", name:"Asia Minor → Eastern Mediterranean → Balkans", color:"#3a86ff",
+distance:"≈5,000+ km (Kabul → Trieste)", duration:"6 months – 3 years",
+stats:[["E. Med crossings 2025","≈46,200 (–30%)"],["W. Balkans 2025","–42% (heavy enforcement)"],["Main origins","Afghanistan, Syria, Pakistan"]],
+overview:"The long land bridge from Asia to the EU. Afghans cross Iran's deserts and the Zagros passes, then the militarized Iran–Turkey border near Van (wall, drones, watchtowers). From Turkey: rubber dinghies across the Aegean to Greek islands, or the Evros river by land. Then north through the Balkans — where each closed border has spawned a detour: Hungary's 2015 fence pushed the route through Croatia, then Bosnia, where crossing attempts are known simply as 'the game'.",
+terrain:"High-altitude mountain crossings (Zagros; the 3,000 m passes around Van, lethal in winter), the fast cold Evros river, the Aegean in overloaded dinghies, then the Dinaric Alps between Bosnia and Croatia.",
+blockage:"Layered blockages: Iran and Turkey border walls → smugglers use higher, colder passes. Aegean pushbacks by masked units → shift to the Evros land route and to bigger boats direct to Italy. Hungary's fence (2015) → reroute via Croatia and Bosnia (Bihać), where people attempt 'the game' dozens of times against documented pushbacks.",
+path:[[34.53,69.17],[31.0,64.0],[30.96,61.86],[32.5,56.5],[35.69,51.39],[37.55,45.07],[38.5,43.38],[39.75,37.0],[41.01,28.98],[41.68,26.56],[40.64,22.94],[41.14,22.5],[42.0,21.43],[44.79,20.45],[46.18,19.98]],
+altPaths:[
+ {name:"Aegean sea branch (İzmir → Lesbos → Athens)", pts:[[41.01,28.98],[38.42,27.14],[39.11,26.35],[38.4,25.0],[37.98,23.73],[40.64,22.94]]}
+],
+reroutes:[{name:"Bosnia detour — 'the game'", reason:"Hungary's 2015 border fence at Röszke closed the direct path; the route bent west through Bosnia (Bihać) and the Dinaric Alps into Croatia, against systematic pushbacks.", pts:[[44.79,20.45],[44.54,18.68],[43.85,18.41],[44.82,15.87],[45.49,15.55],[45.81,15.98],[45.65,13.77]]}],
+crossings:[
+ {ll:[30.96,61.86], name:"Zaranj (Afghanistan→Iran)", note:"Nimruz desert crossing; main Afghan exit."},
+ {ll:[38.5,43.38], name:"Van (Iran→Turkey)", note:"Border wall, drones; night mountain crossings at 2,500–3,000 m."},
+ {ll:[41.68,26.56], name:"Evros river (Turkey→Greece)", note:"Steel fence + documented pushbacks; cold fast river."},
+ {ll:[39.11,26.35], name:"Lesbos, Greece", note:"Aegean island arrivals; pushbacks at sea reported."},
+ {ll:[46.18,19.98], name:"Röszke (Serbia→Hungary) — BLOCKED", note:"4 m double fence since 2015; forced the Bosnia detour."},
+ {ll:[44.82,15.87], name:"Bihać, Bosnia", note:"Staging town for 'the game' across the Dinaric Alps into Croatia."},
+ {ll:[45.65,13.77], name:"Trieste, Italy (arrival)", note:"End of the Balkan corridor for many."}
+],
+story:{who:"Zahra, 16 — fictional composite", origin:"Ghazni, Afghanistan (Hazara)",
+text:["Zahra's family left Ghazni the year the schools closed to her. The smuggler's route ran through Zaranj, across Iran in car trunks and safehouses, then the mountains above Van at night — single file, no lights, February. Her little brother's shoes froze to his feet; a man from Herat carried him the last four hours.","The Aegean took two attempts. The first dinghy was stopped by masked men who took the engine and towed them back toward Turkey. The second try, the family switched to the Evros river — waist-deep, holding a rope, phones in plastic bags.","Then the Balkans: fourteen months, six attempts at 'the game' from Bihać across the mountains, twice walked back by Croatian police, once robbed. On the seventh attempt they walked 11 days to Trieste. Zahra is in school again in Italy. Total journey: 26 months, roughly 5,400 km — for a distance a plane covers in seven hours."]}
+},
+{
+id:"syria", name:"Syria ⇄ Jordan, Lebanon & Turkey (camps and 2025 returns)", color:"#e9c46a",
+distance:"50–900 km overland; most flee less than 200 km", duration:"Hours–days to cross; displacement measured in decades",
+stats:[["Peak displacement","6.8M refugees + 7.2M IDPs — world's largest crisis"],["Returns since Dec 2024","1.2M+ refugees & 1.9M IDPs (UNHCR)"],["Still hosted","Turkey ≈2.7M; Lebanon & Jordan millions incl. Zaatari camp"]],
+overview:"The war that began in 2011 produced the world's largest refugee crisis — and its geography contradicts the popular image: the vast majority of Syrians never went to Europe. They crossed the nearest border: to Zaatari and Azraq camps in Jordan's desert, to informal tented settlements across Lebanon's Bekaa Valley (Lebanon hosted more refugees per capita than any country on Earth), and to Turkey, the world's largest host (~3M). This corridor also feeds the Eastern Mediterranean route to the EU. Since the fall of the Assad government in December 2024, the arrows have reversed: over 1.2 million refugees have returned — history's largest spontaneous return movement — though many find rubble, unexploded ordnance and no services where home used to be.",
+terrain:"Short but hard crossings: the Anti-Lebanon and Qalamoun mountain smuggling paths into Arsal; the flat desert berm on Jordan's frontier where the Rukban camp sat stranded for years; Turkey's 900 km concrete border wall. Zaatari itself is a desert city: 80,000 people, its own high street, twelve years old.",
+blockage:"Every neighbor progressively closed: Lebanon restricted entry in 2015; Jordan sealed the berm after a 2016 attack, stranding ~50,000 people at Rukban in a no-man's-land for years; Turkey finished its wall and pushed crossings to smuggler mountain paths. The great 2025 reroute is homeward — returns from Zaatari (≈170,000 from Jordan) and the Bekaa (500,000+ left Lebanon in 2025), constrained by destroyed housing and mined fields.",
+path:[[33.51,36.29],[32.62,36.1],[32.36,36.2],[32.29,36.33],[31.95,35.93]],
+altPaths:[
+ {name:"To Lebanon (Bekaa Valley / Beirut)", pts:[[33.51,36.29],[33.62,36.1],[33.72,35.94],[33.85,35.9],[33.89,35.5]]},
+ {name:"Qalamoun mountain smuggling path (Arsal)", pts:[[33.95,36.6],[34.05,36.5],[34.18,36.42]]},
+ {name:"To Turkey (Aleppo → Bab al-Hawa → Gaziantep)", pts:[[36.2,37.16],[36.24,36.68],[36.6,36.9],[37.07,37.38]]}
+],
+reroutes:[
+ {name:"Rukban berm — BLOCKED border", reason:"Jordan sealed the frontier after a 2016 attack; ~50,000 people were stranded for years in the desert no-man's-land at Rukban with almost no aid.", pts:[[33.51,36.29],[33.0,37.5],[33.31,38.7]]},
+ {name:"2025 RETURN flows (post-Assad)", reason:"Since December 2024, 1.2M+ refugees have crossed back — from Zaatari through Nasib, and from the Bekaa through Masnaa — the largest return movement in modern history.", pts:[[31.95,35.93],[32.29,36.33],[32.36,36.2],[33.0,36.25],[33.51,36.29]]}
+],
+crossings:[
+ {ll:[32.29,36.33], name:"Zaatari camp, Jordan", note:"Opened 2012; peaked at 150,000 people — a desert city with its own market street. ~170,000 have returned from Jordan since Dec 2024."},
+ {ll:[32.36,36.2], name:"Nasib / Jaber crossing (Syria–Jordan)", note:"Main border post; the route of both the 2012–16 exodus and the 2025 returns."},
+ {ll:[33.72,35.94], name:"Masnaa crossing (Syria–Lebanon)", note:"Beirut–Damascus highway; main formal crossing to Lebanon."},
+ {ll:[33.85,35.9], name:"Bekaa Valley settlements, Lebanon", note:"No formal camps in Lebanon — hundreds of informal tented settlements among the farms; the most refugee-dense region on Earth."},
+ {ll:[34.18,36.42], name:"Arsal, Lebanon", note:"Mountain smuggling crossing through the Qalamoun; hosted 100,000+ in bitter-winter camps."},
+ {ll:[33.31,38.7], name:"Rukban (the berm) — BLOCKED", note:"No-man's-land camp where ~50,000 were stranded after Jordan sealed the border in 2016; finally emptied after 2024."},
+ {ll:[36.24,36.68], name:"Bab al-Hawa (Syria–Turkey)", note:"Aid lifeline to the northwest; Turkey's 900 km border wall runs either side."}
+],
+story:{who:"Rania, 38 — fictional composite", origin:"Daraa, Syria",
+text:["Rania left Daraa in 2013 with three children and one plastic bag of documents, walking the last stretch to the Jordanian border at night because the road was sniped. Zaatari was then a grid of tents in bare desert; over twelve years she watched it become a city — caravans, a market street the refugees nicknamed the Champs-Élysées, her daughter's whole childhood. Her husband went the other way in 2015, on the Aegean route to Germany; the family-reunification file outlived two caseworkers.","In December 2024 the camp stayed up all night watching phones: the government had fallen. She waited out the winter — 'you don't survive twelve years by being first' — and crossed back through Nasib in spring 2025 with a UNHCR return grant.","Their house in Daraa is a shell with sky for a roof; the field behind it is marked with red tape for mines. Her youngest, born in Zaatari, keeps calling the camp 'home.' Rania is rebuilding one room at a time. 'We were never migrants,' she says. 'We were neighbors who knocked on a door and waited twelve years to walk home.'"]}
+},
+{
+id:"eastern", name:"Horn of Africa → Yemen → Saudi Arabia (Eastern Route)", color:"#2a9d8f",
+distance:"≈2,000–2,500 km (Ethiopian highlands → Saudi border)", duration:"1–6 months",
+stats:[["Movements 2025","506,000+ (+18%) — world's busiest mixed route"],["Dead/missing 2025","922 — deadliest year on record"],["Main origins","Ethiopia (Oromia, Amhara), Somalia"]],
+overview:"The world's busiest irregular corridor, and one of its least reported. Ethiopians and Somalis walk through the Danakil desert to Obock, Djibouti, cross the Gulf of Aden / Bab el-Mandeb strait in overloaded dhows, then travel the length of war-torn Yemen to attempt the Saudi border — where Human Rights Watch has documented border guards firing on migrants. Many are held for ransom in Yemen in torture camps run by traffickers.",
+terrain:"The Danakil is one of the hottest places on Earth — 45 °C+, sandstorms that blind and disorient walkers. Then a night sea crossing of 30–115 km, then Yemen's western mountains to the Saada frontier at 2,000 m.",
+blockage:"Police checkpoints in Djibouti pushed smugglers to remoter coastal launch points (a key driver of 2025's record drownings). The Saudi border fence and lethal enforcement turn many back into Yemen, stranded; tens of thousands accept IOM voluntary-return flights from Aden.",
+path:[[9.02,38.75],[9.59,41.87],[11.1,42.7],[11.96,43.29],[12.62,43.9],[12.79,45.02],[13.9,44.4],[15.35,44.21],[16.94,43.76],[17.4,43.2]],
+altPaths:[{name:"Somaliland branch (Bosaso → Shabwah coast)", pts:[[9.56,44.06],[10.6,45.3],[11.28,49.18],[13.0,48.5],[14.0,47.4]]}],
+reroutes:[{name:"Remote Djibouti coastal launches", reason:"Checkpoint evasion pushed departures to isolated beaches with smaller, worse boats — a key factor in 2025's record 922 deaths.", pts:[[11.96,43.29],[12.35,43.35],[12.62,43.42],[12.75,43.9]]}],
+crossings:[
+ {ll:[11.96,43.29], name:"Obock, Djibouti", note:"Main embarkation beach for the Gulf of Aden crossing."},
+ {ll:[12.58,43.42], name:"Bab el-Mandeb strait", note:"'Gate of Grief' — night crossings in overloaded dhows; smugglers force passengers overboard near shore."},
+ {ll:[12.79,45.02], name:"Aden, Yemen", note:"IOM transit center; assisted voluntary return flights."},
+ {ll:[16.94,43.76], name:"Saada, Yemen", note:"Staging area for the Saudi border attempt, in an active war zone."},
+ {ll:[17.4,43.2], name:"Saudi frontier (Jizan sector)", note:"Fenced, patrolled; HRW-documented shootings of migrants."}
+],
+story:{who:"Bilal, 17 — fictional composite", origin:"Arsi zone, Oromia, Ethiopia",
+text:["The drought killed the cattle and the conflict took the harvest, so Bilal walked. Fifteen days from Arsi to Obock, the last stretch through the Danakil, where the broker's water ran out a day early and the group licked condensation off a tanker truck's tank at dawn.","The dhow crossed at night, 160 people pressed knee to back. Near the Yemeni shore the smugglers forced everyone into deep water to avoid patrols; Bilal cannot swim and lived because a Somali man pushed a jerrycan into his arms. Others did not.","In Lahj, traffickers held him in a compound they call a hosh, phoning his mother while they beat him. She sold the last ox for his release. At the Saada frontier the group scattered under gunfire from the ridge; Bilal turned back. He is now in the IOM center in Aden, seventeen years old, asking for a flight home — back through the country that nearly killed him twice."]}
+},
+{
+id:"darien", name:"South America → Darién Gap → Panama (and the 2025 reversal)", color:"#38b000",
+distance:"≈97–110 km of roadless jungle (the Gap itself)", duration:"3–10 days on foot",
+stats:[["Crossings 2023 peak","520,000+ (82,000 in one month)"],["Crossings mid-2025","as few as 10–13 per month (–99.98%)"],["2025 reversal","≈14,000 traveled SOUTH by coastal boat (Feb–Aug)"]],
+overview:"The only break in the Pan-American Highway: 100+ km of mountainous rainforest between Colombia and Panama with no road at all. At its 2023 peak, over half a million people — mostly Venezuelans — crossed on foot. After the US shut asylum access in early 2025 and Panama sealed trails, crossings collapsed by 99.98%… and the route inverted: thousands began traveling SOUTH, paying for boat passages along Panama's Caribbean and Pacific coasts to get back to Colombia without re-entering the jungle.",
+terrain:"Triple-canopy rainforest, mud to the knee, the Filo del Muerto ('Ridge of Death') climb, and rivers that flash-flood in minutes and sweep camps away. No settlements, no rescue. Armed groups control the Colombian side.",
+blockage:"US asylum shutdown + Panamanian trail closures (2025) didn't end movement — they reversed it. Southbound migrants bypass the jungle by sea: Caribbean launches from Colón toward Puerto Obaldía and Capurganá, and a Pacific route via Jaqué to Buenaventura that surged and then collapsed after shipwrecks and crackdowns.",
+path:[[8.42,-76.79],[8.63,-77.35],[8.42,-77.63],[8.87,-77.98],[8.51,-78.0],[8.98,-79.52]],
+altPaths:[],
+reroutes:[
+ {name:"REVERSE Caribbean boat route (southbound, 2025)", reason:"With the US border closed, stranded migrants paid ≥$230 for launches down the Guna Yala coast back to Colombia — bypassing the jungle by sea.", pts:[[8.98,-79.52],[9.55,-79.65],[9.44,-78.9],[9.0,-77.8],[8.67,-77.42],[8.63,-77.35],[8.42,-76.79]]},
+ {name:"REVERSE Pacific boat route (surged, then vanished)", reason:"Pacific launches via Jaqué to Colombian ports; shipwrecks and enforcement ended it within months.", pts:[[8.98,-79.52],[8.3,-78.9],[7.52,-78.16],[6.22,-77.4],[4.5,-77.35],[3.88,-77.03]]}
+],
+crossings:[
+ {ll:[8.42,-76.79], name:"Necoclí, Colombia", note:"Beach town where northbound journeys began — and where the 2025 reverse route ends."},
+ {ll:[8.63,-77.35], name:"Capurganá / Acandí", note:"Last Colombian villages before the jungle trailheads."},
+ {ll:[8.42,-77.63], name:"Bajo Chiquito, Panama", note:"First village after the Gap; Emberá community turned reception point."},
+ {ll:[8.87,-77.98], name:"Lajas Blancas camp", note:"Government migration station; largely emptied by mid-2025."},
+ {ll:[8.67,-77.42], name:"Puerto Obaldía", note:"Caribbean waypoint of the southbound boat route."}
+],
+story:{who:"Mariángel, 29 — fictional composite", origin:"Maracay, Venezuela",
+text:["Mariángel, a nurse, crossed the Darién northbound in 2023 with her six-year-old daughter. She remembers the jungle in details she rations: the rope line at the river crossing, the man who sat down on the Filo del Muerto and would not get up, her daughter asking why the tents by the trail had no people.","They waited two years in Mexico for a CBP One asylum appointment. In January 2025 the app went dark; her case number simply stopped existing. Going north was over. Going back through the jungle was unthinkable.","So she joined the reversal: buses south through Central America, then $260 each for a launch from Panama's Caribbean coast — life jackets for children only — hopping down the Guna Yala coastline to Puerto Obaldía, and finally the beach at Necoclí. The same beach. 'Two years, eleven countries,' she says, 'and the map returned me to my exact footprints.' She is now regularizing her status in Colombia."]}
+},
+{
+id:"usmex", name:"Central America → Mexico → US border", color:"#fb8500",
+distance:"≈3,000–4,500 km (Guatemala → US border)", duration:"1–6 months",
+stats:[["2025 status","Border crossings at historic lows; asylum access closed"],["Deadliest zone","Sonoran Desert: hundreds die of heat yearly"],["Key danger","Cartel kidnapping & extortion in N. Mexico"]],
+overview:"From Central America across the Suchiate river into Mexico, then 3,000+ km north — by bus, on foot, or clinging to the freight trains called La Bestia — to the US frontier: the Rio Grande in Texas, the Sonoran Desert in Arizona, the wall segments of California. In 2025, US asylum access was effectively shut; crossings fell to historic lows and hundreds of thousands were left stranded in Mexico.",
+terrain:"The Sonoran Desert (summer ground temps 60 °C+; the deadliest land migration zone in the Americas), the swift Rio Grande, and the long exposed rail corridors where falls from La Bestia take limbs.",
+blockage:"Sequential wall-building and Border Patrol 'Prevention Through Deterrence' pushed crossings out of cities into remote desert — deaths rose for 30 years. The 2025 asylum shutdown blocked the route's end entirely: many now apply for refuge in Mexico (COMAR) or join the southbound reversal.",
+path:[[8.98,-79.52],[9.93,-84.08],[8.53,-82.84],[12.13,-86.25],[13.7,-89.2],[14.63,-90.55],[14.9,-92.26],[16.75,-93.1],[17.06,-96.72],[19.43,-99.13],[22.15,-100.98],[25.67,-100.31],[28.7,-100.52]],
+altPaths:[
+ {name:"Pacific/Sonora branch → Arizona desert", pts:[[19.43,-99.13],[20.66,-103.35],[23.2,-106.4],[29.07,-110.95],[31.46,-111.54]]},
+ {name:"Juárez branch → El Paso", pts:[[22.15,-100.98],[25.54,-103.45],[28.63,-106.07],[31.74,-106.49]]}
+],
+reroutes:[{name:"Pushed into the Sonoran Desert", reason:"Walls and urban enforcement since the 1990s ('Prevention Through Deterrence') deliberately displaced crossings into lethal desert terrain around Sasabe and the Devil's Highway.", pts:[[29.07,-110.95],[30.7,-112.2],[31.46,-111.54],[31.9,-112.8]]}],
+crossings:[
+ {ll:[14.9,-92.26], name:"Suchiate river (Guatemala→Mexico)", note:"Raft crossings beside the official bridge at Tapachula."},
+ {ll:[8.53,-82.84], name:"Paso Canoas (Panama→Costa Rica)", note:"Main Central American land crossing."},
+ {ll:[28.7,-100.52], name:"Eagle Pass / Rio Grande", note:"River crossing; frequent drownings."},
+ {ll:[31.46,-111.54], name:"Sasabe corridor, Sonoran Desert", note:"Remote desert crossing; deadliest US entry zone."},
+ {ll:[31.74,-106.49], name:"Ciudad Juárez / El Paso", note:"Urban crossing point; 2025: asylum access closed."}
+],
+story:{who:"Carlos, 34 — fictional composite", origin:"San Pedro Sula, Honduras",
+text:["The gang's 'war tax' on Carlos's tire shop doubled the month after his brother refused to pay his own; his brother is dead. Carlos crossed the Suchiate on an inner-tube raft and rode La Bestia north, sleeping strapped to the grating with a belt.","In Tamaulipas, men with radios pulled him off a bus, held him in a stash house with forty others, and priced his life at $4,000 — his cousin in Houston wired it in three payments. He reached the Rio Grande in late 2024, was expelled, and by the time he tried again the asylum system itself was gone.","He looked at the map of the Sonoran Desert, where the migrant-aid group marks each recovered body with a red dot, and the dots looked like a rash on the whole state. He chose not to. Carlos is in Monterrey now, pouring concrete, case pending with Mexico's refugee agency. 'I didn't stop running,' he says. 'I just ran out of road.'"]}
+},
+{
+id:"andaman", name:"Bay of Bengal & Andaman Sea (Rohingya route)", color:"#7209b7",
+distance:"≈1,800–3,200 km of sea", duration:"1–8 weeks (boats often drift)",
+stats:[["Attempted 2025","6,500+ Rohingya by sea"],["Dead/missing 2025","≈900 — 1 in 7; world's highest route mortality"],["April 2026","≈250 missing in a single capsizing"]],
+overview:"Rohingya refugees — a stateless people confined to camps in Bangladesh (Cox's Bazar, ~1 million people) and to Myanmar's Rakhine state — board fishing trawlers for Malaysia or Indonesia. 2025 was the deadliest year ever recorded: about one in seven who attempted the crossing died or disappeared, the highest mortality of any sea route on Earth. Boats are engineered for cargo, loaded in tiers like shelving, and often drift for weeks when engines fail.",
+terrain:"2,000+ km of monsoon-governed open sea. Outside the Nov–Mar sailing window, storms are lethal; inside it, boats still drift when abandoned by crews. No state conducts systematic search and rescue in the Andaman Sea.",
+blockage:"Thailand's 2015 trafficking crackdown closed the old land corridor through Thai jungle camps — boats now sail longer routes direct to Indonesia/Malaysia. Regional pushbacks ('help on, push off') leave vessels drifting between jurisdictions for weeks.",
+path:[[21.43,92.01],[19.5,91.8],[16.5,92.5],[13.0,94.0],[9.5,95.5],[6.5,97.0],[5.45,95.3]],
+altPaths:[
+ {name:"To Malaysia (Langkawi)", pts:[[13.0,94.0],[9.0,96.5],[7.0,98.6],[6.35,99.8]]},
+ {name:"From Rakhine (Sittwe)", pts:[[20.14,92.9],[18.0,92.6],[16.5,92.5]]}
+],
+reroutes:[{name:"Long sea route (post-2015)", reason:"Thailand's closure of jungle transit camps ended the short hop to the Thai coast; boats now make the far longer direct run to Aceh — often drifting when crews abandon them.", pts:[[13.0,94.0],[10.0,93.5],[7.0,94.5],[5.45,95.3]]}],
+crossings:[
+ {ll:[21.43,92.01], name:"Cox's Bazar, Bangladesh", note:"World's largest refugee settlement (~1M Rohingya); night embarkations from nearby beaches."},
+ {ll:[20.14,92.9], name:"Sittwe, Rakhine (Myanmar)", note:"Departures from internment-camp areas."},
+ {ll:[11.6,92.7], name:"Andaman Islands (India)", note:"Where drifting boats are often first sighted."},
+ {ll:[5.45,95.3], name:"Aceh, Indonesia (arrival)", note:"Acehnese fishermen have repeatedly towed drifting boats ashore."},
+ {ll:[6.35,99.8], name:"Langkawi, Malaysia (arrival)", note:"Destination for family reunification; arrivals face detention."}
+],
+story:{who:"Noor, 20 — fictional composite", origin:"Kutupalong camp, Cox's Bazar (Rohingya)",
+text:["Noor was ten when her family fled Rakhine; she has spent half her life inside a camp she is not permitted to leave, in a country that does not count her as a citizen, barred from formal school and work. When a fire took their shelter block, her parents accepted a proposal from a Rohingya man working in Malaysia and paid a broker for her passage.","The trawler loaded 180 people at night, stacked on plank tiers with 60 cm of headroom. Two cups of water a day. Off the Andaman Islands the engine seized, the crew left on a skiff, and the boat drifted for 19 days. Nineteen passengers died; the living prayed over them and gave them to the sea.","Acehnese fishermen — defying instructions to push the boat onward — towed them to shore near Lhokseumawe. Noor is in a camp again, still stateless, still twenty. 'I traded one waiting for another,' she says. 'But this waiting has no fence.'"]}
+},
+{
+id:"southern", name:"Horn of Africa → Southern Africa (Southern Route)", color:"#457b9d",
+distance:"≈4,000 km (Addis Ababa → Johannesburg)", duration:"1–8 months",
+stats:[["Main origins","Ethiopia, Somalia, DR Congo, Malawi"],["Signature danger","Sealed trucks & containers (64 suffocated, Mozambique 2020)"],["Destination","South Africa (Gauteng)"]],
+overview:"The least visible of the three great routes out of the Horn of Africa. Ethiopians and Somalis move south through Kenya, Tanzania, Malawi and Mozambique toward South Africa's economy — often hidden in sealed trucks and containers arranged by smuggling networks, or crossing Lake Malawi by boat. Deaths by suffocation in cargo compartments are this route's signature tragedy.",
+terrain:"Long savanna and highland distances, Lake Malawi's night crossings, the crocodile-inhabited Limpopo River at the South African border, and the border scrublands controlled by robbery gangs ('magumaguma').",
+blockage:"Kenya–Tanzania checkpoint enforcement pushes groups into sealed cargo compartments; Mozambique detention sweeps push routes through Zimbabwe. At Beitbridge, fence and patrols push crossers to the Limpopo's informal fords.",
+path:[[9.02,38.75],[6.0,38.5],[3.53,39.05],[-1.29,36.82],[-3.37,36.68],[-6.2,35.75],[-9.93,33.93],[-13.96,33.77],[-16.16,33.59],[-19.0,32.2],[-22.22,29.99],[-26.2,28.05]],
+altPaths:[{name:"Lake Malawi boat leg", pts:[[-9.93,33.93],[-11.5,34.3],[-13.5,34.6],[-13.96,33.77]]}],
+reroutes:[{name:"Zimbabwe detour", reason:"Detention sweeps in Mozambique push convoys west through Zimbabwe to reach Beitbridge.", pts:[[-16.16,33.59],[-17.83,31.05],[-20.15,30.0],[-22.22,29.99]]}],
+crossings:[
+ {ll:[3.53,39.05], name:"Moyale (Ethiopia→Kenya)", note:"Main southern exit from Ethiopia."},
+ {ll:[-9.93,33.93], name:"Karonga / Songwe (Tanzania→Malawi)", note:"Truck transfer point; Lake Malawi boat departures."},
+ {ll:[-16.16,33.59], name:"Tete corridor, Mozambique", note:"Where sealed-truck tragedies have repeatedly occurred."},
+ {ll:[-22.22,29.99], name:"Beitbridge / Limpopo River (→South Africa)", note:"Africa's busiest land border; informal fords beset by robbery gangs."}
+],
+story:{who:"Tesfay, 22 — fictional composite", origin:"Eritrea",
+text:["Tesfay was conscripted at 17 into Eritrea's national service, which has no end date. He slipped across to Ethiopia at night, spent two years in a refugee camp near Shire, then paid a broker chain heading not north to Libya — he'd heard the voice notes from the ransom houses — but south.","Through Kenya he lay under sacks of maize. In Tanzania the truck's cargo box was welded shut for three days with 38 men inside; they took turns lying beneath the single drilled air hole. He thinks often about the 64 Ethiopians found suffocated in a container in Mozambique in 2020, because that truck and his truck were the same truck, only luckier.","He crossed Lake Malawi by night boat, bribed his way out of a Mozambican cell, and forded the Limpopo at dawn between crocodile banks while men called magumaguma stripped the group of phones and shoes. Johannesburg, month nine. His asylum claim will take years to be heard; his hands, he says, arrived ready to work."]}
+}
+];
+
+/* terrain feature labels */
+const TERRAIN=[
+ [23.5,6,"S A H A R A"],[18.3,11.3,"Ténéré"],[13.6,41.2,"Danakil Desert"],
+ [31.9,-112.6,"Sonoran Desert"],[8.15,-77.55,"Darién jungle"],[33,47.5,"Zagros Mts."],
+ [38.9,42.2,"E. Anatolian Highlands"],[44.35,16.35,"Dinaric Alps"],[31.3,-6.3,"Atlas Mts."],
+ [12.58,43.3,"Bab el-Mandeb"],[36.4,-3.6,"Alboran Sea"],[35.9,-5.55,"Str. of Gibraltar"],
+ [34.6,13.5,"Mediterranean Sea"],[23,-19.5,"Atlantic Ocean"],[10.5,94.3,"Andaman Sea"],
+ [9.5,39.6,"Ethiopian Highlands"],[15.2,44.3,"Yemen Highlands"],[-22.4,29.4,"Limpopo R."],
+ [-12,34.4,"Lake Malawi"],[26.5,3,"Tanezrouft"],[14.5,-0.5,"S A H E L"],
+ [33.95,36.15,"Anti-Lebanon Mts."],[32.9,38.2,"Syrian Desert (Badia)"]
+];
+
+/* ================= MAP ================= */
+const WORLD=L.latLngBounds([-60,-180],[75,180]);
+const map=L.map('map',{worldCopyJump:false,minZoom:2,maxBounds:WORLD,maxBoundsViscosity:1.0}).setView([18,15],3);
+const topo=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:15,noWrap:true,bounds:WORLD,attribution:'© OpenStreetMap, SRTM | © OpenTopoMap (CC-BY-SA)'});
+const esriTopo=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:17,noWrap:true,bounds:WORLD,attribution:'Esri, USGS, NOAA'});
+const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:17,noWrap:true,bounds:WORLD,attribution:'Esri, Maxar, Earthstar'});
+const satLabels=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:17,noWrap:true,bounds:WORLD,pane:'shadowPane'});
+const satellite=L.layerGroup([sat,satLabels]);
+satellite.addTo(map);
+document.getElementById('map').classList.add('sat');
+const baseLayers={"Satellite (real imagery)":satellite,"Topographic (Esri – smooth)":esriTopo,"Topographic (OpenTopoMap – detailed relief)":topo};
+L.control.layers(baseLayers,null,{position:'topright'}).addTo(map);
+map.on('baselayerchange',e=>{document.getElementById('map').classList.toggle('sat',e.name.startsWith('Satellite'));});
+
+/* legend */
+const legend=L.control({position:'bottomright'});
+legend.onAdd=()=>{const d=L.DomUtil.create('div','legend');
+d.innerHTML='<div class="li"><span class="sw" style="border-color:#e8eef4"></span>Primary route</div>'+
+'<div class="li"><span class="sw dash" style="border-color:#e8eef4"></span>Reroute / detour when blocked</div>'+
+'<div class="li"><span class="sw" style="border-top:3px dotted #e8eef4"></span>Branch / variant</div>'+
+'<div class="li"><span style="width:22px;text-align:center">●</span>Border crossing / waypoint</div>';
+return d;};
+legend.addTo(map);
+
+/* terrain labels */
+TERRAIN.forEach(t=>{
+ L.tooltip({permanent:true,direction:'center',className:'terr-label'}).setLatLng([t[0],t[1]]).setContent(t[2]).addTo(map);
+});
+
+/* draw routes */
+const layerIndex={};
+ROUTES.forEach(r=>{
+ const group=L.featureGroup();
+ const lines=[];
+ const mk=(pts,style)=>{const pl=L.polyline(pts,style).addTo(group);lines.push(pl);return pl;};
+ const main=mk(r.path,{color:r.color,weight:4,opacity:.85});
+ main.bindTooltip(r.name,{sticky:true});
+ (r.altPaths||[]).forEach(a=>{
+   const pl=mk(a.pts,{color:r.color,weight:3,opacity:.7,dashArray:'2 7'});
+   pl.bindTooltip(r.name+' — '+a.name,{sticky:true});
+ });
+ (r.reroutes||[]).forEach(rr=>{
+   const pl=mk(rr.pts,{color:r.color,weight:3,opacity:.8,dashArray:'9 7'});
+   pl.bindTooltip('↪ REROUTE: '+rr.name,{sticky:true});
+   pl.bindPopup('<b>↪ Reroute: '+rr.name+'</b><br>'+rr.reason);
+ });
+ const markers=[];
+ r.crossings.forEach(c=>{
+   const m=L.marker(c.ll,{icon:L.divIcon({className:'',html:'<div class="xmark" style="background:'+r.color+'"></div>',iconSize:[13,13],iconAnchor:[7,7]})}).addTo(group);
+   m.bindPopup('<b>'+c.name+'</b><br>'+c.note);
+   markers.push(m);
+ });
+ group.addTo(map);
+ lines.forEach(l=>l.on('click',()=>selectRoute(r.id)));
+ layerIndex[r.id]={group,lines,markers};
+});
+
+/* selection & animation */
+let selected=null, animTimer=null;
+function setDim(dim){
+ ROUTES.forEach(r=>{
+   const on=(!dim||r.id===selected);
+   layerIndex[r.id].lines.forEach(l=>l.setStyle({opacity:on?( selected&&r.id===selected?1:.85):.12}));
+   layerIndex[r.id].markers.forEach(m=>m.setOpacity(on?1:.15));
+ });
+}
+function animateFlow(id){
+ if(animTimer){cancelAnimationFrame(animTimer);animTimer=null;}
+ if(!id)return;
+ const main=layerIndex[id].lines[0];let off=0;
+ main.setStyle({dashArray:'12 10'});
+ (function step(){off=(off-0.6)%22;if(main._path)main._path.style.strokeDashoffset=off;animTimer=requestAnimationFrame(step);})();
+}
+function clearAnim(id){
+ if(animTimer){cancelAnimationFrame(animTimer);animTimer=null;}
+ if(id){const main=layerIndex[id].lines[0];main.setStyle({dashArray:null});if(main._path)main._path.style.strokeDashoffset=0;}
+}
+
+/* ================= SIDEBAR ================= */
+const content=document.getElementById('content');
+function renderList(){
+ clearAnim(selected);selected=null;setDim(false);
+ let h='';
+ ROUTES.forEach(r=>{
+  h+='<div class="route-card" onclick="selectRoute(\''+r.id+'\')"><span class="dot" style="background:'+r.color+'"></span><div><h3>'+r.name+'</h3><div class="meta">'+r.distance+' · '+r.duration+'</div></div></div>';
+ });
+ h+='<div class="foot"><b>About the stories:</b> every traveler profiled here is fictional — a composite built from documented reporting and data by IOM, UNHCR, Mixed Migration Centre, Human Rights Watch and journalists on these routes. The events described (ransom camps, pushbacks, drift voyages, desert expulsions) are all documented practices.<br><br><b>Data:</b> IOM Displacement Tracking Matrix (Global Overview of Migration Routes 2025), UNHCR, Frontex, Mixed Migration Centre, Caminando Fronteras. Figures are estimates and change constantly.<br><br><b>How to use:</b> click any route (in this list or on the map) to zoom in. Click ● markers for crossing details, dashed lines for reroute explanations. The satellite view shows real imagery — zoom all the way in on a crossing (Lampedusa’s harbor, the Melilla fence, Zaatari camp) to see the actual terrain. Switch to OpenTopoMap (top-right) for shaded mountain/desert relief.</div>';
+ content.innerHTML=h;
+ map.flyTo([18,15],3,{duration:1.2});
+}
+function selectRoute(id){
+ const r=ROUTES.find(x=>x.id===id);
+ clearAnim(selected);selected=id;setDim(true);animateFlow(id);
+ map.flyToBounds(layerIndex[id].group.getBounds().pad(.25),{duration:1.4});
+ let h='<button class="back" onclick="renderList()">← All routes</button>';
+ h+='<h2 style="color:'+r.color+'">'+r.name+'</h2>';
+ h+='<div class="chips"><span class="chip">📏 <b>'+r.distance+'</b></span><span class="chip">⏱ <b>'+r.duration+'</b></span>';
+ r.stats.forEach(s=>{h+='<span class="chip">'+s[0]+': <b>'+s[1]+'</b></span>';});
+ h+='</div>';
+ h+='<div class="sec"><h4>Overview</h4><p>'+r.overview+'</p></div>';
+ h+='<div class="sec"><h4>⛰ The terrain</h4><p>'+r.terrain+'</p></div>';
+ h+='<div class="sec"><h4>📍 Key crossings & waypoints</h4>';
+ r.crossings.forEach((c,i)=>{h+='<div class="xing" onclick="goXing(\''+id+'\','+i+')"><span class="pin">●</span><span>'+c.name+'<small>'+c.note+'</small></span></div>';});
+ h+='</div>';
+ h+='<div class="sec"><h4>🚧 Blockages & rerouting</h4><p>'+r.blockage+'</p>';
+ (r.reroutes||[]).forEach(rr=>{h+='<p style="margin-top:8px"><span class="reroute-tag">↪ reroute (dashed on map)</span><br><b style="font-size:.8rem">'+rr.name+'</b><br>'+rr.reason+'</p>';});
+ h+='</div>';
+ h+='<div class="sec"><h4>🧍 One journey</h4></div>';
+ h+='<div class="story"><div class="who">'+r.story.who+' <span>· from '+r.story.origin+'</span></div>';
+ r.story.text.forEach(p=>{h+='<p>'+p+'</p>';});
+ h+='</div>';
+ h+='<div class="foot">This traveler is a fictional composite; every practice described is documented on this route (IOM, UNHCR, MMC, HRW, press reporting).</div>';
+ content.innerHTML=h;
+ document.getElementById('sidebar').scrollTop=0;
+}
+function goXing(id,i){
+ const r=ROUTES.find(x=>x.id===id);
+ const c=r.crossings[i];
+ map.flyTo(c.ll,c.name.indexOf('fence')>-1||c.name.indexOf('camp')>-1?14:9,{duration:1.2});
+ layerIndex[id].markers[i].openPopup();
+}
+window.selectRoute=selectRoute;window.renderList=renderList;window.goXing=goXing;
+renderList();
+</script>
+</body>
+</html>
