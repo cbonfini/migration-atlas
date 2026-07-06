@@ -34,7 +34,7 @@
   .chip{background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:4px 10px; font-size:.7rem; color:var(--ink2);}
   .chip b{color:var(--ink); font-weight:600;}
   .sec{padding:10px 20px 0;}
-  .sec h4{font-size:.72rem; text-transform:uppercase; letter-spacing:1.2px; color:var(--accent); margin-bottom:6px;}
+  .sec h3{font-size:.72rem; text-transform:uppercase; letter-spacing:1.2px; color:var(--accent); margin-bottom:6px;}
   .sec p{font-size:.82rem; line-height:1.55; color:#cdd8e2;}
   .xing{display:flex; gap:8px; padding:6px 8px; margin:3px 0; font-size:.79rem; border-radius:6px; cursor:pointer; background:var(--panel2); line-height:1.4;}
   .xing:hover{background:#2c3b49;}
@@ -48,7 +48,7 @@
   .reroute-tag{display:inline-block; background:#5c2e2e; color:#f0b8b8; font-size:.68rem; padding:2px 8px; border-radius:10px; margin-bottom:6px;}
   .foot{padding:16px 20px; font-size:.68rem; color:var(--ink2); line-height:1.5; border-top:1px solid var(--line); margin-top:18px;}
   .foot a{color:var(--accent); text-decoration:none;}
-  .legend{background:rgba(20,26,33,.88); color:var(--ink); padding:10px 12px; border-radius:8px; font-size:.72rem; line-height:1.7; border:1px solid var(--line);}
+  .legend{background:rgba(20,26,33,.88); color:var(--ink); padding:8px 12px; border-radius:8px; font-size:.72rem; line-height:1.7; border:1px solid var(--line); display:flex; flex-wrap:wrap; gap:2px 16px; align-items:center; max-width:calc(100vw - 30px);}
   .legend .li{display:flex; align-items:center; gap:8px;}
   .legend .sw{width:22px; height:0; border-top:3px solid #fff;}
   .legend .sw.dash{border-top-style:dashed;}
@@ -60,24 +60,45 @@
   .leaflet-popup-tip{background:var(--panel);}
   .leaflet-popup-content b{color:var(--accent);}
   #scorm-progress{margin-top:8px; font-size:.72rem; color:var(--accent);}
-  @media (max-width:760px){ #app{flex-direction:column;} #sidebar{width:100%; height:45%; min-width:0;} #map{height:55%;} }
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+  a.skip{position:absolute;left:-9999px;top:0;z-index:1200;background:var(--accent);color:#141a21;padding:8px 14px;border-radius:0 0 8px 0;font-size:.85rem;font-weight:600;text-decoration:none;}
+  a.skip:focus{left:0;}
+  .route-card:focus-visible,.xing:focus-visible{outline:3px solid var(--accent);outline-offset:-3px;background:var(--panel2);}
+  .back:focus-visible,#lang-select:focus-visible{outline:3px solid var(--accent);outline-offset:2px;}
+  @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important;}}
+  @media (max-width:760px){
+    #app{flex-direction:column;}
+    #map{order:-1; height:52%; flex:none;}
+    #sidebar{width:100%; height:48%; min-width:0; border-right:none; border-top:1px solid var(--line);}
+    .sb-head{padding:10px 14px 10px;}
+    .sb-head h1{font-size:.95rem;}
+    .sb-head p{font-size:.7rem; line-height:1.4;}
+    .route-card{padding:10px 14px;}
+    .detail h2{font-size:1rem;}
+    .sec p,.story p{font-size:.78rem;}
+    .legend{font-size:.6rem; line-height:1.4; gap:2px 10px; padding:5px 8px; margin-bottom:4px !important;}
+    .legend .sw{width:16px;}
+    .leaflet-control-layers{max-width:70vw;}
+  }
 </style>
 </head>
 <body>
+<a class="skip" href="#map" id="skip-link">Skip to map</a>
 <div id="app">
-  <div id="sidebar">
+  <div id="sidebar" role="region" aria-label="Migration routes information">
     <div class="sb-head">
       <h1 id="app-title">🌍 Global Human Migration Routes</h1>
       <p id="app-intro">An interactive satellite &amp; topographic atlas of the world's major irregular migration corridors. Click a route to zoom in and explore its geography, border crossings, blockages &amp; reroutes — and follow the journey of one traveler. <b style="color:var(--ink)">Solid lines</b> = primary routes; <b style="color:var(--ink)">dashed lines</b> = reroutes taken when the main path is blocked. Zoom in anywhere: the satellite view is real imagery, down to individual fences, harbors and trails.</p>
       <div id="scorm-progress"></div>
-      <div style="margin-top:10px"><select id="lang-select" style="background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:.78rem;width:100%">
+      <div id="a11y-status" class="sr-only" role="status" aria-live="polite"></div>
+      <div style="margin-top:10px"><select id="lang-select" aria-label="Language / Idioma" style="background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:.78rem;width:100%">
         <option value="en">English</option>
         <option value="es">Español</option>
       </select></div>
     </div>
     <div id="content"></div>
   </div>
-  <div id="map"></div>
+  <div id="map" role="region" aria-label="Interactive map of migration routes" tabindex="-1"></div>
 </div>
 
 <script>
@@ -204,7 +225,7 @@ distance:"50–900 km overland; most flee less than 200 km", duration:"Hours–d
 stats:[["Peak displacement","6.8M refugees + 7.2M IDPs — world's largest crisis"],["Returns since Dec 2024","1.2M+ refugees & 1.9M IDPs (UNHCR)"],["Still hosted","Turkey ≈2.7M; Lebanon & Jordan millions incl. Zaatari camp"]],
 overview:"The war that began in 2011 produced the world's largest refugee crisis — and its geography contradicts the popular image: the vast majority of Syrians never went to Europe. They crossed the nearest border: to Zaatari and Azraq camps in Jordan's desert, to informal tented settlements across Lebanon's Bekaa Valley (Lebanon hosted more refugees per capita than any country on Earth), and to Turkey, the world's largest host (~3M). This corridor also feeds the Eastern Mediterranean route to the EU. Since the fall of the Assad government in December 2024, the arrows have reversed: over 1.2 million refugees have returned — history's largest spontaneous return movement — though many find rubble, unexploded ordnance and no services where home used to be.",
 terrain:"Short but hard crossings: the Anti-Lebanon and Qalamoun mountain smuggling paths into Arsal; the flat desert berm on Jordan's frontier where the Rukban camp sat stranded for years; Turkey's 900 km concrete border wall. Zaatari itself is a desert city: 80,000 people, its own high street, twelve years old.",
-blockage:"Every neighbor progressively closed: Lebanon restricted entry in 2015; Jordan sealed the berm after a 2016 attack, stranding ~50,000 people at Rukban in a no-man's-land for years; Turkey finished its wall and pushed crossings to smuggler mountain paths. The great 2025 reroute is homeward — returns from Zaatari (≈170,000 from Jordan) and the Bekaa (500,000+ left Lebanon in 2025), constrained by destroyed housing and mined fields.",
+blockage:"Every neighbor progressively closed: Lebanon restricted entry in 2015; Jordan sealed the berm after a 2016 attack, stranding ~50,000 people at Rukban in a no-man's-land for years; Turkey finished its wall and pushed crossings to smuggler mountain paths. The great 2025 reroute is homeward — returns from Zaatari (≈170,000 from Jordan) and the Bekaa (500,000+ left Lebanon in 2025), constrained by destroyed housing and mined fields. June 2026 escalation update: the Iran-linked hostilities displaced 704,445 people inside Lebanon (523,249 had returned by 24 June), and 464,562 movements from Lebanon into Syria were recorded March–June — this corridor now flows in both directions at once.",
 path:[[33.51,36.29],[32.62,36.1],[32.36,36.2],[32.29,36.33],[31.95,35.93]],
 altPaths:[
  {name:"To Lebanon (Bekaa Valley / Beirut)", pts:[[33.51,36.29],[33.62,36.1],[33.72,35.94],[33.85,35.9],[33.89,35.5]]},
@@ -334,6 +355,33 @@ crossings:[
 ],
 story:{who:"Tesfay, 22 — fictional composite", origin:"Eritrea",
 text:["Tesfay was conscripted at 17 into Eritrea's national service, which has no end date. He slipped across to Ethiopia at night, spent two years in a refugee camp near Shire, then paid a broker chain heading not north to Libya — he'd heard the voice notes from the ransom houses — but south.","Through Kenya he lay under sacks of maize. In Tanzania the truck's cargo box was welded shut for three days with 38 men inside; they took turns lying beneath the single drilled air hole. He thinks often about the 64 Ethiopians found suffocated in a container in Mozambique in 2020, because that truck and his truck were the same truck, only luckier.","He crossed Lake Malawi by night boat, bribed his way out of a Mozambican cell, and forded the Limpopo at dawn between crocodile banks while men called magumaguma stripped the group of phones and shoes. Johannesburg, month nine. His asylum claim will take years to be heard; his hands, he says, arrived ready to work."]}
+},
+{
+id:"iran", name:"Middle East escalation — Iran ⇄ its neighbours (2026 crisis mobility)", color:"#00b4d8",
+distance:"600–2,000 km overland from Tehran to the nearest open border", duration:"Days — borders stayed open; movement mostly precautionary or economic",
+stats:[["Iran→Afghanistan since 01 Mar","514,066 people (–10% w/w)"],["Iran→Pakistan","30,943 (mostly Taftan–Mirjaveh)"],["Iran⇄Iraq, May","535,428 in / 517,160 out (4 of 12 BCPs)"],["Ceasefire","US–Iran MOU, 17 June 2026 (60-day)"]],
+overview:"The newest corridor on this map — a live case study in crisis mobility, tracked weekly by IOM's Displacement Tracking Matrix. The June 2026 escalation between Israel, the United States and Iran set people moving across every one of Iran's borders — yet it defied the 'mass exodus' expectation: flows stayed moderate, localised and largely economic. Afghanistan received by far the most movements (514,066 entries since March, many of them Afghan workers going home), while Lebanon, struck in the same escalation, counted over 704,000 internally displaced — 523,249 of whom had returned by late June after the 17 June ceasefire. Inside Iran itself, roughly 9,000 people remained unable to return to damaged homes.",
+terrain:"The Iranian plateau is ringed by hard geography: the Zagros mountains toward Iraq, the vast Dasht-e Kavir and Dasht-e Lut deserts in the interior, and the arid Baluchistan borderlands toward Pakistan. All movement funnels through a handful of desert and mountain border posts.",
+blockage:"Of 44 monitored points of entry, 28 were fully open, 9 partially open and 7 closed at end-June 2026. The darker dynamic is forced return: Afghans deported from Türkiye via Iran arrive at Islam Qala reporting lost belongings and mistreatment in detention, and even documented travelers were turned back at Milak — here it is enforcement, not war, that closes doors.",
+path:[[35.69,51.39],[36.3,59.6],[34.66,61.07],[34.35,62.2]],
+altPaths:[
+ {name:"To Pakistan (Zahedan → Taftan–Mirjaveh → Quetta)", pts:[[35.69,51.39],[30.28,57.08],[29.5,60.86],[28.98,61.55],[30.18,66.99]]},
+ {name:"Milak / Zaranj crossing (Sistan)", pts:[[29.5,60.86],[30.96,61.86]]},
+ {name:"To Iraqi Kurdistan (Kermanshah → Bashmagh → Sulaymaniyah)", pts:[[35.69,51.39],[34.31,47.06],[35.3,45.9],[35.56,45.43]]},
+ {name:"To Armenia (Tabriz → Agarak → Yerevan)", pts:[[35.69,51.39],[38.08,46.29],[38.88,46.2],[40.18,44.51]]},
+ {name:"To Türkiye (Tabriz → Kapıköy → Van)", pts:[[38.08,46.29],[38.4,44.0],[38.5,43.38]]}
+],
+reroutes:[{name:"Deportation pipeline in reverse: Türkiye → Iran → Islam Qala", reason:"While civilians moved out, deportees moved through: Afghan nationals forcibly returned from Türkiye across Iran arrive at Islam Qala reporting loss of belongings and mistreatment in detention. Forced returns rose at both Islam Qala and Milak in late June 2026 (IOM DTM).", pts:[[38.5,43.38],[38.08,46.29],[35.69,51.39],[36.3,59.6],[34.66,61.07]]}],
+crossings:[
+ {ll:[34.66,61.07], name:"Islam Qala (Iran→Afghanistan)", note:"The corridor's busiest gate — most of the 514,066 entries into Afghanistan since March, plus rising forced returns of deportees sent on from Türkiye."},
+ {ll:[30.96,61.86], name:"Milak / Zaranj (Iran→Afghanistan)", note:"Forced returns rising; even travelers with valid documents reported being turned back in late June 2026."},
+ {ll:[28.98,61.55], name:"Taftan–Mirjaveh (Iran→Pakistan)", note:"25,939 of the 30,943 crossings into Pakistan since March."},
+ {ll:[35.3,45.9], name:"Bashmagh (Iran⇄Iraqi Kurdistan)", note:"70% of arrivals are Iranian nationals — family visits, work, tourism; no conflict-driven movement reported here."},
+ {ll:[38.88,46.2], name:"Agarak (Iran→Armenia)", note:"4,930 entries recorded; also a return path for Iranians coming home from the Gulf."},
+ {ll:[35.69,51.39], name:"Tehran (origin hub)", note:"≈9,000 people still displaced within Iran, many sheltering in hotels, unable to return to damaged housing."}
+],
+story:{who:"Jawad, 26 — fictional composite", origin:"Herat, Afghanistan (working in Tehran)",
+text:["Jawad had poured concrete in Tehran for three years, sending half of every paycheck to Herat. When the strikes began in June 2026, the site foreman stopped answering his phone, and the city he knew from scaffolding height emptied around him — not in panic, he says, but in calculation: families driving to relatives in the countryside, workers counting what was owed to them.","He joined the bus queues east with a season's wages sewn into his jacket. At Islam Qala the line held two kinds of traveler: men like him, going home to wait out a war that might not come, and deportees arriving under escort from Türkiye via Iran — men who had lost their bags, their phones and, some said quietly, worse in detention. The border itself never closed; IOM counted half a million crossings like his in four months.","News of the ceasefire reached Herat on his cousin's phone, eleven days after he arrived. Jawad is already asking about buses back — Tehran wages are four times Herat's, and the same report that counted him crossing east expects to count him crossing west. 'The border is a door that swings,' he says. 'We are the hinge.'"]}
 }
 ];
 
@@ -346,7 +394,8 @@ const TERRAIN=[
  [34.6,13.5,"Mediterranean Sea"],[23,-19.5,"Atlantic Ocean"],[10.5,94.3,"Andaman Sea"],
  [9.5,39.6,"Ethiopian Highlands"],[15.2,44.3,"Yemen Highlands"],[-22.4,29.4,"Limpopo R."],
  [-12,34.4,"Lake Malawi"],[26.5,3,"Tanezrouft"],[14.5,-0.5,"S A H E L"],
- [33.95,36.15,"Anti-Lebanon Mts."],[32.9,38.2,"Syrian Desert (Badia)"]
+ [33.95,36.15,"Anti-Lebanon Mts."],[32.9,38.2,"Syrian Desert (Badia)"],
+ [34.5,54.5,"Dasht-e Kavir"],[30.5,58.5,"Dasht-e Lut"]
 ];
 
 /* ================= MAP ================= */
@@ -370,7 +419,7 @@ const UI_EN={
  back:"← All routes", secOverview:"Overview", secTerrain:"⛰ The terrain", secCross:"📍 Key crossings & waypoints", secBlock:"🚧 Blockages & rerouting", secJourney:"🧍 One journey",
  rerouteTag:"↪ reroute (dashed on map)", rerouteTip:"↪ REROUTE: ", reroutePop:"↪ Reroute: ", from:"· from ",
  storyFoot:"This traveler is a fictional composite; every practice described is documented on this route (IOM, UNHCR, MMC, HRW, press reporting).",
- listFoot:"<b>About the stories:</b> every traveler profiled here is fictional — a composite built from documented reporting and data by IOM, UNHCR, Mixed Migration Centre, Human Rights Watch and journalists on these routes. The events described (ransom camps, pushbacks, drift voyages, desert expulsions) are all documented practices.<br><br><b>Data:</b> IOM Displacement Tracking Matrix (Global Overview of Migration Routes 2025), UNHCR, Frontex, Mixed Migration Centre, Caminando Fronteras. Figures are estimates and change constantly.<br><br><b>How to use:</b> click any route (in this list or on the map) to zoom in. Click ● markers for crossing details, dashed lines for reroute explanations. The satellite view shows real imagery — zoom all the way in on a crossing (Lampedusa's harbor, the Melilla fence, Zaatari camp) to see the actual terrain. Switch to OpenTopoMap (top-right) for shaded mountain/desert relief.",
+ listFoot:"<b>About the stories:</b> every traveler profiled here is fictional — a composite built from documented reporting and data by IOM, UNHCR, Mixed Migration Centre, Human Rights Watch and journalists on these routes. The events described (ransom camps, pushbacks, drift voyages, desert expulsions) are all documented practices.<br><br><b>Data:</b> IOM Displacement Tracking Matrix (Global Overview of Migration Routes 2025; Escalation in the Middle East Mobility Report R17, June 2026), UNHCR, Frontex, Mixed Migration Centre, Caminando Fronteras. Figures are estimates and change constantly.<br><br><b>How to use:</b> click any route (in this list or on the map) to zoom in. Click ● markers for crossing details, dashed lines for reroute explanations. The satellite view shows real imagery — zoom all the way in on a crossing (Lampedusa's harbor, the Melilla fence, Zaatari camp) to see the actual terrain. Switch to OpenTopoMap (top-right) for shaded mountain/desert relief.",
  legend:["Primary route","Reroute / detour when blocked","Branch / variant","Border crossing / waypoint"],
  progress:"📚 Routes explored: {n} of {t}", progressDone:" — complete!"
 };
@@ -395,7 +444,7 @@ window.PROGRESS_TEXT=function(n,t){const u=ui();return u.progress.replace("{n}",
 let legendCtl=null;
 function buildLegend(){
  if(legendCtl)map.removeControl(legendCtl);
- legendCtl=L.control({position:'bottomright'});
+ legendCtl=L.control({position:'bottomleft'});
  legendCtl.onAdd=()=>{const d=L.DomUtil.create('div','legend');const lg=ui().legend;
  d.innerHTML='<div class="li"><span class="sw" style="border-color:#e8eef4"></span>'+lg[0]+'</div>'+
  '<div class="li"><span class="sw dash" style="border-color:#e8eef4"></span>'+lg[1]+'</div>'+
@@ -437,7 +486,7 @@ function buildRoutes(){
   });
   const markers=[];
   r.crossings.forEach(c=>{
-    const m=L.marker(c.ll,{icon:L.divIcon({className:'',html:'<div class="xmark" style="background:'+r.color+'"></div>',iconSize:[13,13],iconAnchor:[7,7]})}).addTo(group);
+    const m=L.marker(c.ll,{alt:c.name,keyboard:true,icon:L.divIcon({className:'',html:'<div class="xmark" style="background:'+r.color+'"></div>',iconSize:[13,13],iconAnchor:[7,7]})}).addTo(group);
     m.bindPopup('<b>'+c.name+'</b><br>'+c.note);
     markers.push(m);
   });
@@ -459,6 +508,7 @@ function setDim(dim){
 function animateFlow(id){
  if(animTimer){cancelAnimationFrame(animTimer);animTimer=null;}
  if(!id)return;
+ if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)return;
  const main=layerIndex[id].lines[0];let off=0;
  main.setStyle({dashArray:'12 10'});
  (function step(){off=(off-0.6)%22;if(main._path)main._path.style.strokeDashoffset=off;animTimer=requestAnimationFrame(step);})();
@@ -476,7 +526,7 @@ function renderList(){
  let h='';
  ROUTES.forEach(base=>{
   const r=getRoute(base.id);
-  h+='<div class="route-card" onclick="selectRoute(\''+base.id+'\')"><span class="dot" style="background:'+r.color+'"></span><div><h3>'+r.name+'</h3><div class="meta">'+r.distance+' · '+r.duration+'</div></div></div>';
+  h+='<div class="route-card" role="button" tabindex="0" onclick="selectRoute(\''+base.id+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();selectRoute(\''+base.id+'\')}"><span class="dot" style="background:'+r.color+'"></span><div><h3>'+r.name+'</h3><div class="meta">'+r.distance+' · '+r.duration+'</div></div></div>';
  });
  h+='<div class="foot">'+u.listFoot+'</div>';
  content.innerHTML=h;
@@ -492,21 +542,22 @@ function selectRouteInner(id){
  h+='<div class="chips"><span class="chip">📏 <b>'+r.distance+'</b></span><span class="chip">⏱ <b>'+r.duration+'</b></span>';
  r.stats.forEach(s=>{h+='<span class="chip">'+s[0]+': <b>'+s[1]+'</b></span>';});
  h+='</div>';
- h+='<div class="sec"><h4>'+u.secOverview+'</h4><p>'+r.overview+'</p></div>';
- h+='<div class="sec"><h4>'+u.secTerrain+'</h4><p>'+r.terrain+'</p></div>';
- h+='<div class="sec"><h4>'+u.secCross+'</h4>';
- r.crossings.forEach((c,i)=>{h+='<div class="xing" onclick="goXing(\''+id+'\','+i+')"><span class="pin">●</span><span>'+c.name+'<small>'+c.note+'</small></span></div>';});
+ h+='<div class="sec"><h3>'+u.secOverview+'</h3><p>'+r.overview+'</p></div>';
+ h+='<div class="sec"><h3>'+u.secTerrain+'</h3><p>'+r.terrain+'</p></div>';
+ h+='<div class="sec"><h3>'+u.secCross+'</h3>';
+ r.crossings.forEach((c,i)=>{h+='<div class="xing" role="button" tabindex="0" onclick="goXing(\''+id+'\','+i+')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();goXing(\''+id+'\','+i+')}"><span class="pin">●</span><span>'+c.name+'<small>'+c.note+'</small></span></div>';});
  h+='</div>';
- h+='<div class="sec"><h4>'+u.secBlock+'</h4><p>'+r.blockage+'</p>';
+ h+='<div class="sec"><h3>'+u.secBlock+'</h3><p>'+r.blockage+'</p>';
  (r.reroutes||[]).forEach(rr=>{h+='<p style="margin-top:8px"><span class="reroute-tag">'+u.rerouteTag+'</span><br><b style="font-size:.8rem">'+rr.name+'</b><br>'+rr.reason+'</p>';});
  h+='</div>';
- h+='<div class="sec"><h4>'+u.secJourney+'</h4></div>';
+ h+='<div class="sec"><h3>'+u.secJourney+'</h3></div>';
  h+='<div class="story"><div class="who">'+r.story.who+' <span>'+u.from+r.story.origin+'</span></div>';
  r.story.text.forEach(p=>{h+='<p>'+p+'</p>';});
  h+='</div>';
  h+='<div class="foot">'+u.storyFoot+'</div>';
  content.innerHTML=h;
  document.getElementById('sidebar').scrollTop=0;
+ var st=document.getElementById('a11y-status');if(st)st.textContent=r.name;
 }
 function goXing(id,i){
  const r=getRoute(id);
@@ -520,6 +571,8 @@ function applyHeader(){
  const u=ui();
  document.getElementById('app-title').textContent=u.title;
  document.getElementById('app-intro').innerHTML=u.intro;
+ document.getElementById('map').setAttribute('aria-label',LANG==='es'?'Mapa interactivo de rutas migratorias':'Interactive map of migration routes');
+ document.getElementById('skip-link').textContent=(LANG==='es')?'Saltar al mapa':'Skip to map';
  document.title=(LANG==='es')?'Rutas migratorias humanas del mundo — Atlas topográfico interactivo':'Global Human Migration Routes — Interactive Topographic Atlas';
  document.documentElement.lang=LANG;
 }
